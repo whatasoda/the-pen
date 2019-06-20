@@ -7,10 +7,11 @@
     "airbnb",
     "plugin:@typescript-eslint/recommended",
     "plugin:prettier/recommended",
+    "plugin:import/typescript",
     "prettier/@typescript-eslint",
     "prettier/react"
   ],
-  "plugins": ["prettier", "@typescript-eslint", "react", "react-hooks"],
+  "plugins": ["@typescript-eslint", "react", "react-hooks"],
   "settings": {
     "react": {
       "version": "detect"
@@ -24,6 +25,11 @@
   },
   "rules": {
     "consistent-return": "off",
-    "@typescript-eslint/explicit-function-return-type": "off"
+    "no-underscore-dangle": "off",
+    "@typescript-eslint/explicit-function-return-type": "off",
+    "import/no-extraneous-dependencies": ["error", {
+      "devDependencies": true,
+      "optionalDependencies": false
+    }]
   }
 }
