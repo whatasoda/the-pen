@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/whatasoda/the-pen/issues"
   },
-  "homepage": "https://github.com/whatasoda/the-pen#readme"
+  "homepage": "https://github.com/whatasoda/the-pen#readme",
+  "devDependencies": {
+    "typescript": "^3.5.2"
+  }
 }
