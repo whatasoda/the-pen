@@ -1,0 +1,19 @@
+{
+  "name": "the-pen",
+  "version": "0.0.1",
+  "description": "Graduation production",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/whatasoda/the-pen.git"
+  },
+  "author": "whatasoda",
+  "license": "UNLICENSED",
+  "bugs": {
+    "url": "https://github.com/whatasoda/the-pen/issues"
+  },
+  "homepage": "https://github.com/whatasoda/the-pen#readme"
+}
