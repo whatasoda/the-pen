@@ -26,7 +26,11 @@
   "rules": {
     "consistent-return": "off",
     "no-underscore-dangle": "off",
+    "no-plusplus": "off",
+    "no-shadow": "off",
     "@typescript-eslint/explicit-function-return-type": "off",
+    "@typescript-eslint/prefer-interface": "off",
+    "@typescript-eslint/no-use-before-define": "off",
     "import/no-extraneous-dependencies": ["error", {
       "devDependencies": true,
       "optionalDependencies": false
