@@ -15,7 +15,7 @@ const distRoot = path.resolve(__dirname, '../../dist');
 export default (): Configuration => ({
   devtool: 'source-map',
   entry: {
-    app: path.resolve(srcRoot, 'app.ts'),
+    script: path.resolve(srcRoot, 'script.ts'),
   },
   output: {
     path: distRoot,
@@ -47,7 +47,8 @@ export default (): Configuration => ({
     rules: [
       {
         test: /\.tsx?$/,
-        use: [multi(['ts-loader?transpileOnly', 'thread-loader!eslint-loader'])],
+        exclude: /node_modules/,
+        loader: multi(['thread-loader!null-loader!eslint-loader', 'ts-loader?transpileOnly']),
       },
       {
         test: /\.html$/,
