@@ -2,8 +2,8 @@ import { vec3, mat4, mat3 } from 'gl-matrix';
 import { TrackerContext, TrackerCore, TrackerOptions } from './decls';
 import { calculatePoint, getPoints, calculateRegressionDirection } from './math';
 
-const DEFAULT_TIME_RANGE = 0.2;
-const DEFAULT_SPEED_REGISTANCE = 0.1;
+const DEFAULT_TIME_RANGE = 400;
+const DEFAULT_SPEED_REGISTANCE = 5;
 const DEFAULT_DISTANCE_BETWEEN_POINTS = 0.005;
 
 const createContext = ({
@@ -21,6 +21,11 @@ const createContext = ({
   },
 });
 
+const P = vec3.create();
+const origin = vec3.create();
+const eye = vec3.create();
+const center = vec3.create();
+const up = vec3.create();
 const axisZ = vec3.create();
 const axisX = vec3.create();
 const transform4 = mat4.create();
@@ -38,15 +43,20 @@ const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
     ctx.points = getPoints(ctx, ctx.options.maxTimeRange);
     const src = getPoints(ctx, range || 0);
 
-    calculateRegressionDirection(axisZ, src);
-    vec3.cross(axisX, ctx.acc.velocity, axisZ);
-    vec3.normalize(axisX, axisX);
+    if (!src.length) return { points: [] };
 
-    mat4.lookAt(transform4, [0, 0, 0], axisZ, axisX);
+    calculateRegressionDirection(axisZ, origin, src);
+    vec3.cross(axisX, origin, axisZ);
+
+    vec3.copy(eye, src[0].position);
+    vec3.add(center, eye, axisZ);
+    vec3.normalize(up, axisX);
+
+    mat4.lookAt(transform4, eye, center, up);
     mat3.fromMat4(transform3, transform4);
 
     const points = src.map(({ position: raw, movement, timestamp }) => {
-      const position = vec3.transformMat4(vec3.create(), raw, transform4);
+      const position = [...vec3.transformMat4(P, raw, transform4)];
       return { position, movement, timestamp };
     });
 

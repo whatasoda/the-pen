@@ -1,20 +1,6 @@
 import { vec3, glMatrix, quat } from 'gl-matrix';
-import {
-  Point,
-  CoordKey,
-  TrackerAccumulator,
-  TrackerInput,
-  LeastSquaresWeight,
-  TrackerOptions,
-  RegressionWeight,
-  TrackerContext,
-} from './decls';
+import { Point, TrackerAccumulator, TrackerInput, LeastSquaresWeight, TrackerOptions, TrackerContext } from './decls';
 
-const REGRESSION_COORD_ORDER = [0, 1, 2] as const;
-const REGRESSION_COORD_U = [0, 1, 2] as const;
-const REGRESSION_COORD_V = [1, 2, 0] as const;
-
-const Q = quat.create();
 const V = vec3.create();
 
 /**
@@ -27,13 +13,14 @@ const V = vec3.create();
 const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: TrackerOptions): Point | null => {
   if (!input.acceleration || !input.rotationRate) return null;
 
-  const { speedRegistancePerSec, distanceBetweenPoints } = options;
+  const { Q } = calculatePoint;
+  const { speedRegistancePerSec } = options;
   const {
     interval: ms,
     rotationRate: { gamma, beta, alpha },
     acceleration: { y, x, z },
   } = input;
-  const interval = ms * 1e3;
+  const interval = ms;
 
   acc.timestamp += interval;
   const { rotation, position, velocity, timestamp } = acc;
@@ -42,7 +29,7 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: T
    * We want to apply invert rotation to acceleration.
    * Euler order of `DeviceMotionEventRotationRate` is Z-X-Y.
    */
-  const [rZ, rX, rY] = vec3.scaleAndAdd(rotation, rotation, [alpha || 0, beta || 0, gamma || 0], interval);
+  const [rZ, rX, rY] = vec3.scaleAndAdd(rotation, rotation, [alpha || 0, beta || 0, gamma || 0], interval * 1e-3);
   quat.fromEuler(Q, -rY, -rX, -rZ);
   const [aY, aX, aZ] = vec3.transformQuat(V, [y || 0, x || 0, z || 0], Q);
   const acceleration = vec3.fromValues(aY, aX, aZ);
@@ -56,59 +43,55 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: T
 
   const movement = vec3.length(velocity) * interval;
 
-  const toLerp: PointToLerp = {
-    velocity: vec3.clone(velocity),
-    position: vec3.clone(position),
+  const withoutWeight: PointWithoutWeight = {
+    velocity: [...velocity],
+    position: [...position],
     movement,
     interval,
+    timestamp,
   };
 
-  const weight = calculateRegressionWeight(toLerp, distanceBetweenPoints);
+  const weight = calculateLeastSquaresWeight(withoutWeight);
 
-  return { ...toLerp, weight, timestamp };
+  return { ...withoutWeight, weight };
 };
+calculatePoint.Q = quat.create();
 
-const calculateRegressionWeight = (point: PointToLerp, distanceBetweenPoints: number): RegressionWeight => {
-  const line = lerpLine(point, distanceBetweenPoints);
-  const weight = REGRESSION_COORD_ORDER.map((o) =>
-    calculateLeastSquaresWeight(line, REGRESSION_COORD_U[o], REGRESSION_COORD_V[o]),
-  ) as RegressionWeight;
+type PointWithoutWeight = Omit<Point, 'weight'>;
+const calculateLeastSquaresWeight = ({ position, velocity, movement }: PointWithoutWeight): LeastSquaresWeight => {
+  const { u, uu, uv, U, UU, UV } = calculateLeastSquaresWeight;
 
-  return weight;
+  const w = movement;
+
+  vec3.copy(u, position);
+  vec3.multiply(uu, u, u);
+  vec3.multiply(uv, u, [u[1], u[2], u[0]]);
+
+  vec3.copy(U, u);
+  vec3.copy(UU, uu);
+  vec3.copy(UV, uv);
+
+  vec3.scaleAndAdd(u, u, velocity, -movement / vec3.length(velocity));
+  vec3.multiply(uu, u, u);
+  vec3.multiply(uv, u, [u[1], u[2], u[0]]);
+
+  vec3.add(U, U, u);
+  vec3.add(UU, UU, uu);
+  vec3.add(UV, UV, uv);
+
+  const [x, y, z] = vec3.scale(U, U, w);
+  const [xx, yy, zz] = vec3.scale(UU, UU, w);
+  const [xy, yz, zx] = vec3.scale(UV, UV, w);
+  const one = movement * 2;
+  return { x, y, z, xx, yy, zz, xy, yz, zx, one };
 };
-
-type PointToLerp = Pick<Point, 'position' | 'velocity' | 'interval' | 'movement'>;
-const lerpLine = ({ position, velocity, interval, movement }: PointToLerp, distanceBetweenPoints: number): vec3[] => {
-  const count = Math.floor(movement / distanceBetweenPoints);
-  const step = interval / count;
-  vec3.copy(V, position);
-
-  const acc = [];
-  for (let i = 0; i < count; i++) {
-    const p = vec3.scaleAndAdd(vec3.create(), V, velocity, interval - i * step);
-    acc.push(p);
-  }
-
-  return acc;
-};
-
-const calculateLeastSquaresWeight = (line: vec3[], kU: CoordKey, kV: CoordKey): LeastSquaresWeight => {
-  let u = 0;
-  let uv = 0;
-  let v = 0;
-  let vv = 0;
-  let one = 0;
-
-  line.forEach(({ [kU]: U, [kV]: V }) => {
-    u += U;
-    uv += U * V;
-    v += V;
-    vv += V ** 2;
-    one += 1;
-  });
-
-  return { u, uv, v, vv, one };
-};
+calculateLeastSquaresWeight.U = vec3.create();
+calculateLeastSquaresWeight.UU = vec3.create();
+calculateLeastSquaresWeight.UV = vec3.create();
+calculateLeastSquaresWeight.u = vec3.create();
+calculateLeastSquaresWeight.v = vec3.create();
+calculateLeastSquaresWeight.uv = vec3.create();
+calculateLeastSquaresWeight.uu = vec3.create();
 
 /**
  * Calculate direction vector of __regression line__ of given points via __least squares method__.
@@ -124,65 +107,82 @@ const calculateLeastSquaresWeight = (line: vec3[], kU: CoordKey, kV: CoordKey): 
  *  z = Ex + F
  * ]
  * ```
- * @param out vec3 to set result
+ * @param gradient vec3 to set result
  * @param points input points
  */
-const calculateRegressionDirection = (out: vec3, points: Point[]): vec3 => {
-  const weightsList: [LeastSquaresWeight[], LeastSquaresWeight[], LeastSquaresWeight[]] = [[], [], []];
-  points.forEach(({ weight }) => {
-    weightsList.forEach((weights, i) => weights.push(weight[i]));
-  });
-
-  // B, D and F are unnecessary for intercept.
-  const [A, C, E] = weightsList.map(solveLeastSquaresMethod);
+const calculateRegressionDirection = (gradient: vec3, intercept: vec3, points: Point[]) => {
+  const [[A, B], [C, D], [E, F]] = solveLeastSquaresMethod(points.map(({ weight }) => weight));
 
   if (A === null) {
-    vec3.set(out, 1, 0, E || 0);
+    vec3.set(gradient, 1, 0, E || 0);
+    vec3.set(intercept, 0, D, F);
   } else if (C === null) {
-    vec3.set(out, A || 0, 1, 0);
+    vec3.set(gradient, A || 0, 1, 0);
+    vec3.set(intercept, B, 0, F);
   } else if (E === null) {
-    vec3.set(out, 0, C || 0, 1);
+    vec3.set(gradient, 0, C || 0, 1);
+    vec3.set(intercept, B, D, 0);
   } else {
-    vec3.set(out, 1 / E, C, 1);
+    vec3.set(gradient, 1 / E, C, 1);
+    vec3.set(intercept, B + D / E / C, D, 0);
   }
 
-  return vec3.normalize(out, out);
+  vec3.normalize(gradient, gradient);
+  vec3.scaleAndAdd(intercept, intercept, gradient, -vec3.dot(intercept, gradient));
 };
 
 /**
  * It returns scalar of gradient of **U = AV + B**, or null if determinant is Infinity. We do not use `intercept` currently.
  * @param weights
  */
-const solveLeastSquaresMethod = (weights: LeastSquaresWeight[]): number | null => {
-  // variables to accumulate
-  let V = 0;
-  let VV = 0;
-  let U = 0;
-  let UV = 0;
+const solveLeastSquaresMethod = (weights: LeastSquaresWeight[]): [number | null, number][] => {
+  let X = 0;
+  let Y = 0;
+  let Z = 0;
+  let XX = 0;
+  let YY = 0;
+  let ZZ = 0;
+  let XY = 0;
+  let YZ = 0;
+  let ZX = 0;
   let ONE = 0;
 
-  weights.forEach(({ u, uv, v, vv, one }) => {
-    U += u;
-    V += v;
-    VV += vv;
-    UV += uv;
+  weights.forEach(({ x, xx, xy, y, yy, yz, z, zx, zz, one }) => {
+    X += x;
+    Y += y;
+    Z += z;
+    XX += xx;
+    YY += yy;
+    ZZ += zz;
+    XY += xy;
+    YZ += yz;
+    ZX += zx;
     ONE += one;
   });
 
+  return [
+    calculateLeastSquares(X, XY, Y, YY, ONE),
+    calculateLeastSquares(Y, YZ, Z, ZZ, ONE),
+    calculateLeastSquares(Z, ZX, X, XX, ONE),
+  ];
+};
+
+const calculateLeastSquares = (u: number, uv: number, v: number, vv: number, one: number): [number | null, number] => {
   // Reciprocal number of determinant
-  const det = VV * ONE - V ** 2;
+  const det = vv * one - v ** 2;
   if (det < glMatrix.EPSILON) {
-    return null;
+    return [null, 0];
   }
 
-  const gradient = (UV * ONE - U * V) / det;
-  // const intercept = (-UV * U + V2 * V) / det;
+  const gradient = (uv * one - u * v) / det;
+  const intercept = (-uv * u + vv * v) / det;
 
-  return gradient;
+  return [gradient, intercept];
 };
 
 const getPoints = ({ acc, options, points }: TrackerContext, range: number): Point[] => {
   const breakpoint = acc.timestamp - Math.min(Math.max(0, range), options.maxTimeRange);
+
   const i = points.findIndex(({ timestamp }) => timestamp > breakpoint);
   return points.slice(i);
 };

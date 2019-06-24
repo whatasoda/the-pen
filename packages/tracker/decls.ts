@@ -11,18 +11,17 @@ export type Snapshot = {
 };
 
 export type Point = {
-  velocity: vec3;
-  position: vec3;
+  velocity: number[];
+  position: number[];
   movement: number; // movement distance from previous point
   interval: number;
   timestamp: number;
-  weight: RegressionWeight;
+  weight: LeastSquaresWeight;
 };
 
 export type CoordKey = 0 | 1 | 2;
-export type WeightElementKey = 'v' | 'vv' | 'u' | 'uv' | 'one';
+export type WeightElementKey = 'x' | 'y' | 'z' | 'xx' | 'yy' | 'zz' | 'xy' | 'yz' | 'zx' | 'one';
 export type LeastSquaresWeight = Record<WeightElementKey, number>;
-export type RegressionWeight = [LeastSquaresWeight, LeastSquaresWeight, LeastSquaresWeight];
 
 export type TrackerContext = {
   options: TrackerOptions;
