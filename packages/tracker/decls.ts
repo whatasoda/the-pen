@@ -13,7 +13,7 @@ export type Snapshot = {
 export type Point = {
   velocity: number[];
   position: number[];
-  movement: number; // movement distance from previous point
+  movement: number;
   interval: number;
   timestamp: number;
   weight: LeastSquaresWeight;
@@ -24,6 +24,7 @@ export type WeightElementKey = 'x' | 'y' | 'z' | 'xx' | 'yy' | 'zz' | 'xy' | 'yz
 export type LeastSquaresWeight = Record<WeightElementKey, number>;
 
 export type TrackerContext = {
+  shouldUpdate: boolean;
   options: TrackerOptions;
   points: Point[];
   acc: TrackerAccumulator;
@@ -45,7 +46,6 @@ export type TrackerInput = {
 export type TrackerOptions = {
   maxTimeRange: number;
   speedRegistancePerSec: number;
-  distanceBetweenPoints: number;
 };
 
 export type PushInput = (input: TrackerInput) => void;

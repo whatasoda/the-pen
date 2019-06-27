@@ -2,16 +2,15 @@ import { vec3, mat4, mat3 } from 'gl-matrix';
 import { TrackerContext, TrackerCore, TrackerOptions } from './decls';
 import { calculatePoint, getPoints, calculateRegressionDirection } from './math';
 
-const DEFAULT_TIME_RANGE = 400;
+const DEFAULT_TIME_RANGE = 1;
 const DEFAULT_SPEED_REGISTANCE = 5;
-const DEFAULT_DISTANCE_BETWEEN_POINTS = 0.005;
 
 const createContext = ({
-  distanceBetweenPoints = DEFAULT_DISTANCE_BETWEEN_POINTS,
   maxTimeRange = DEFAULT_TIME_RANGE,
   speedRegistancePerSec = DEFAULT_SPEED_REGISTANCE,
 }: Partial<TrackerOptions>): TrackerContext => ({
-  options: { distanceBetweenPoints, maxTimeRange, speedRegistancePerSec },
+  shouldUpdate: false,
+  options: { maxTimeRange, speedRegistancePerSec },
   points: [],
   acc: {
     rotation: vec3.create(),
@@ -36,11 +35,16 @@ const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
 
   const push: TrackerCore['push'] = (input) => {
     const point = calculatePoint(ctx.acc, input, ctx.options);
-    if (point) ctx.points.push(point);
+    if (!point) return;
+    ctx.points.push(point);
+    ctx.shouldUpdate = true;
   };
 
   const snapshot: TrackerCore['snapshot'] = (range) => {
-    ctx.points = getPoints(ctx, ctx.options.maxTimeRange);
+    if (ctx.shouldUpdate) {
+      ctx.points = getPoints(ctx, ctx.options.maxTimeRange);
+      ctx.shouldUpdate = false;
+    }
     const src = getPoints(ctx, range || 0);
 
     if (!src.length) return { points: [] };
