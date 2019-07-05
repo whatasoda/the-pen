@@ -1,5 +1,12 @@
 import { vec3, glMatrix, quat } from 'gl-matrix';
-import { Point, TrackerAccumulator, TrackerInput, LeastSquaresWeight, TrackerOptions, TrackerContext } from './decls';
+import {
+  Point,
+  TrackerAccumulator,
+  TrackerMotionInput,
+  LeastSquaresComponents,
+  TrackerOptions,
+  TrackerContext,
+} from './decls';
 
 const V = vec3.create();
 
@@ -10,14 +17,14 @@ const V = vec3.create();
  * @param input
  * @param options
  */
-const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: TrackerOptions): Point | null => {
+const calculatePoint = (acc: TrackerAccumulator, input: TrackerMotionInput, options: TrackerOptions): Point | null => {
   if (!input.acceleration || !input.rotationRate) return null;
 
   const { Q } = calculatePoint;
   const { speedRegistancePerSec } = options;
   const {
     interval: ms,
-    rotationRate: { gamma, beta, alpha },
+    // rotationRate: { gamma, beta, alpha },
     acceleration: { y, x, z },
   } = input;
   const interval = ms;
@@ -29,7 +36,8 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: T
    * We want to apply invert rotation to acceleration.
    * Euler order of `DeviceMotionEventRotationRate` is Z-X-Y.
    */
-  const [rZ, rX, rY] = vec3.scaleAndAdd(rotation, rotation, [alpha || 0, beta || 0, gamma || 0], interval * 1e-3);
+  // const [rZ, rX, rY] = vec3.scaleAndAdd(rotation, rotation, [alpha || 0, beta || 0, gamma || 0], interval * 1e-3);
+  const [rZ, rX, rY] = rotation;
   quat.fromEuler(Q, -rY, -rX, -rZ);
   const [aY, aX, aZ] = vec3.transformQuat(V, [y || 0, x || 0, z || 0], Q);
   const acceleration = vec3.fromValues(aY, aX, aZ);
@@ -51,17 +59,19 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerInput, options: T
     timestamp,
   };
 
-  const weight = calculateLeastSquaresWeight(withoutWeight);
+  const leastSquares = calculateLeastSquaresComponents(withoutWeight);
 
-  return { ...withoutWeight, weight };
+  return { ...withoutWeight, leastSquares };
 };
 calculatePoint.Q = quat.create();
 
-type PointWithoutWeight = Omit<Point, 'weight'>;
-const calculateLeastSquaresWeight = ({ position, velocity, movement }: PointWithoutWeight): LeastSquaresWeight => {
-  const { u, uu, uv, U, UU, UV } = calculateLeastSquaresWeight;
-
-  const w = movement;
+type PointWithoutWeight = Omit<Point, 'leastSquares'>;
+const calculateLeastSquaresComponents = ({
+  position,
+  velocity,
+  movement: weight,
+}: PointWithoutWeight): LeastSquaresComponents => {
+  const { u, uu, uv, U, UU, UV } = calculateLeastSquaresComponents;
 
   vec3.copy(u, position);
   vec3.multiply(uu, u, u);
@@ -71,7 +81,7 @@ const calculateLeastSquaresWeight = ({ position, velocity, movement }: PointWith
   vec3.copy(UU, uu);
   vec3.copy(UV, uv);
 
-  vec3.scaleAndAdd(u, u, velocity, -movement / vec3.length(velocity));
+  vec3.scaleAndAdd(u, u, velocity, -weight / vec3.length(velocity));
   vec3.multiply(uu, u, u);
   vec3.multiply(uv, u, [u[1], u[2], u[0]]);
 
@@ -79,20 +89,21 @@ const calculateLeastSquaresWeight = ({ position, velocity, movement }: PointWith
   vec3.add(UU, UU, uu);
   vec3.add(UV, UV, uv);
 
-  const [x, y, z] = vec3.scale(U, U, w);
-  const [xx, yy, zz] = vec3.scale(UU, UU, w);
-  const [xy, yz, zx] = vec3.scale(UV, UV, w);
-  const one = movement * 2;
+  const [x, y, z] = vec3.scale(U, U, weight);
+  const [xx, yy, zz] = vec3.scale(UU, UU, weight);
+  const [xy, yz, zx] = vec3.scale(UV, UV, weight);
+  const one = 2 * weight;
   return { x, y, z, xx, yy, zz, xy, yz, zx, one };
 };
-calculateLeastSquaresWeight.U = vec3.create();
-calculateLeastSquaresWeight.UU = vec3.create();
-calculateLeastSquaresWeight.UV = vec3.create();
-calculateLeastSquaresWeight.u = vec3.create();
-calculateLeastSquaresWeight.v = vec3.create();
-calculateLeastSquaresWeight.uv = vec3.create();
-calculateLeastSquaresWeight.uu = vec3.create();
+calculateLeastSquaresComponents.U = vec3.create();
+calculateLeastSquaresComponents.UU = vec3.create();
+calculateLeastSquaresComponents.UV = vec3.create();
+calculateLeastSquaresComponents.u = vec3.create();
+calculateLeastSquaresComponents.v = vec3.create();
+calculateLeastSquaresComponents.uv = vec3.create();
+calculateLeastSquaresComponents.uu = vec3.create();
 
+type WeightCalculator = (index: number, length: number, leastSquares: LeastSquaresComponents) => number;
 /**
  * Calculate direction vector of __regression line__ of given points via __least squares method__.
  * ```
@@ -107,35 +118,52 @@ calculateLeastSquaresWeight.uu = vec3.create();
  *  z = Ex + F
  * ]
  * ```
- * @param gradient vec3 to set result
+ * @param outGradient vec3 to set gradient
+ * @param outIntercept vec3 to set intercept
  * @param points input points
  */
-const calculateRegressionDirection = (gradient: vec3, intercept: vec3, points: Point[]) => {
-  const [[A, B], [C, D], [E, F]] = solveLeastSquaresMethod(points.map(({ weight }) => weight));
+const calculateRegressionDirection = (
+  outGradient: vec3,
+  outIntercept: vec3,
+  points: Point[],
+  getWeight?: WeightCalculator,
+) => {
+  const leastSquaresList: LeastSquaresComponents[] = [];
+  const weights: number[] = [];
+
+  const { length } = points;
+  points.forEach(({ leastSquares }, index) => {
+    leastSquaresList.push(leastSquares);
+    weights.push(getWeight ? getWeight(index, length, leastSquares) : 1);
+  });
+  const [[A, B], [C, D], [E, F]] = solveLeastSquaresMethod(leastSquaresList, weights);
 
   if (A === null) {
-    vec3.set(gradient, 1, 0, E || 0);
-    vec3.set(intercept, 0, D, F);
+    vec3.set(outGradient, 1, 0, E || 0);
+    vec3.set(outIntercept, 0, D, F);
   } else if (C === null) {
-    vec3.set(gradient, A || 0, 1, 0);
-    vec3.set(intercept, B, 0, F);
+    vec3.set(outGradient, A || 0, 1, 0);
+    vec3.set(outIntercept, B, 0, F);
   } else if (E === null) {
-    vec3.set(gradient, 0, C || 0, 1);
-    vec3.set(intercept, B, D, 0);
+    vec3.set(outGradient, 0, C || 0, 1);
+    vec3.set(outIntercept, B, D, 0);
   } else {
-    vec3.set(gradient, 1 / E, C, 1);
-    vec3.set(intercept, B + D / E / C, D, 0);
+    vec3.set(outGradient, 1 / E, C, 1);
+    vec3.set(outIntercept, B + D / E / C, D, 0);
   }
 
-  vec3.normalize(gradient, gradient);
-  vec3.scaleAndAdd(intercept, intercept, gradient, -vec3.dot(intercept, gradient));
+  vec3.normalize(outGradient, outGradient);
+  vec3.scaleAndAdd(outIntercept, outIntercept, outGradient, -vec3.dot(outIntercept, outGradient));
 };
 
 /**
  * It returns scalar of gradient of **U = AV + B**, or null if determinant is Infinity. We do not use `intercept` currently.
- * @param weights
+ * @param leastSquaresList
  */
-const solveLeastSquaresMethod = (weights: LeastSquaresWeight[]): [number | null, number][] => {
+const solveLeastSquaresMethod = (
+  leastSquaresList: LeastSquaresComponents[],
+  weights: number[],
+): [number | null, number][] => {
   let X = 0;
   let Y = 0;
   let Z = 0;
@@ -147,17 +175,18 @@ const solveLeastSquaresMethod = (weights: LeastSquaresWeight[]): [number | null,
   let ZX = 0;
   let ONE = 0;
 
-  weights.forEach(({ x, xx, xy, y, yy, yz, z, zx, zz, one }) => {
-    X += x;
-    Y += y;
-    Z += z;
-    XX += xx;
-    YY += yy;
-    ZZ += zz;
-    XY += xy;
-    YZ += yz;
-    ZX += zx;
-    ONE += one;
+  leastSquaresList.forEach(({ x, xx, xy, y, yy, yz, z, zx, zz, one }, i) => {
+    const w = weights[i];
+    X += x * w;
+    Y += y * w;
+    Z += z * w;
+    XX += xx * w;
+    YY += yy * w;
+    ZZ += zz * w;
+    XY += xy * w;
+    YZ += yz * w;
+    ZX += zx * w;
+    ONE += one * w;
   });
 
   return [
@@ -184,7 +213,7 @@ const getPoints = ({ acc, options, points }: TrackerContext, range: number): Poi
   const breakpoint = acc.timestamp - Math.min(Math.max(0, range), options.maxTimeRange);
 
   const i = points.findIndex(({ timestamp }) => timestamp > breakpoint);
-  return points.slice(i);
+  return points.slice(i !== -1 ? i : 0);
 };
 
 export { calculatePoint, calculateRegressionDirection, solveLeastSquaresMethod, getPoints };

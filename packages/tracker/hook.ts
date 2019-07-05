@@ -16,7 +16,7 @@ let core: TrackerCore;
 const units: Record<number, TrackerUnit> = {};
 
 const useTracker = (range: number) => {
-  const [snapshot, setSnapshot] = useState<Snapshot>({ points: [] });
+  const [snapshot, setSnapshot] = useState<Snapshot>({ points: [], normalized: [] });
   const unit = useMemo<TrackerUnit>(() => ({ id: latestId++, range, setSnapshot }), []);
 
   useEffect(() => {
@@ -36,6 +36,7 @@ useTracker.useModule = (options: Partial<TrackerOptions>) => {
     if (moduleCount++ === 0) {
       alive = true;
       window.addEventListener('devicemotion', onDeviceMotion);
+      window.addEventListener('deviceorientation', onDeviceOrientation);
       update();
     }
 
@@ -43,13 +44,18 @@ useTracker.useModule = (options: Partial<TrackerOptions>) => {
       if (--moduleCount === 0) {
         alive = false;
         window.removeEventListener('devicemotion', onDeviceMotion);
+        window.removeEventListener('deviceorientation', onDeviceOrientation);
       }
     };
   }, []);
 };
 
 const onDeviceMotion = ({ acceleration, rotationRate, interval }: DeviceMotionEvent) => {
-  core.push({ acceleration, rotationRate, interval });
+  core.pushMotion({ acceleration, rotationRate, interval });
+};
+
+const onDeviceOrientation = ({ absolute, alpha, beta, gamma }: DeviceOrientationEvent) => {
+  core.pushOrientation({ absolute, alpha, beta, gamma });
 };
 
 const update = () => {

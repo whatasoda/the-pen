@@ -1,4 +1,4 @@
-import { vec3, mat4, mat3 } from 'gl-matrix';
+import { vec3, mat4 } from 'gl-matrix';
 import { TrackerContext, TrackerCore, TrackerOptions } from './decls';
 import { calculatePoint, getPoints, calculateRegressionDirection } from './math';
 
@@ -28,16 +28,19 @@ const up = vec3.create();
 const axisZ = vec3.create();
 const axisX = vec3.create();
 const transform4 = mat4.create();
-const transform3 = mat3.create();
 
 const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
   const ctx = createContext(options);
 
-  const push: TrackerCore['push'] = (input) => {
-    const point = calculatePoint(ctx.acc, input, ctx.options);
+  const pushMotion: TrackerCore['pushMotion'] = (motion) => {
+    const point = calculatePoint(ctx.acc, motion, ctx.options);
     if (!point) return;
     ctx.points.push(point);
     ctx.shouldUpdate = true;
+  };
+
+  const pushOrientation: TrackerCore['pushOrientation'] = ({ alpha, beta, gamma }) => {
+    vec3.set(ctx.acc.rotation, alpha || 0, beta || 0, gamma || 0);
   };
 
   const snapshot: TrackerCore['snapshot'] = (range) => {
@@ -47,29 +50,49 @@ const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
     }
     const src = getPoints(ctx, range || 0);
 
-    if (!src.length) return { points: [] };
+    if (src.length < 2) return { points: [], normalized: [] };
 
-    calculateRegressionDirection(axisZ, origin, src);
+    const min = 0.9;
+    const max = 0.5;
+    const start = src[0].position;
+    const end = src[src.length - 1].position;
+
+    vec3.sub(P, start, end);
+    vec3.normalize(P, P);
+
+    calculateRegressionDirection(axisZ, origin, src, (i, l) => {
+      const clip = (Math.min(Math.max(min, i / l), max) + min) / (max - min);
+      return clip ** 2;
+    });
+    vec3.scale(axisZ, axisZ, Math.sign(vec3.dot(P, axisZ)) || 1);
     vec3.cross(axisX, origin, axisZ);
 
-    vec3.copy(eye, src[0].position);
+    vec3.copy(eye, end);
     vec3.add(center, eye, axisZ);
     vec3.normalize(up, axisX);
 
     mat4.lookAt(transform4, eye, center, up);
-    mat3.fromMat4(transform3, transform4);
 
+    let zmax = 0;
+    let zmin = 0;
     const points = src.map(({ position: raw, movement, timestamp }) => {
-      const position = [...vec3.transformMat4(P, raw, transform4)];
+      vec3.transformMat4(P, raw, transform4);
+      const position = [...P];
+      zmax = Math.max(zmax, position[2]);
+      zmin = Math.min(zmin, position[2]);
       return { position, movement, timestamp };
     });
+    const length = zmax - zmin;
 
-    return { points };
+    const normalized = points.map(({ position: [x, y, z] }) => [(x ** 2 + y ** 2) ** 0.5 / length, z / length]);
+
+    return { points, normalized };
   };
 
   return {
     ctx,
-    push,
+    pushMotion,
+    pushOrientation,
     snapshot,
   };
 };

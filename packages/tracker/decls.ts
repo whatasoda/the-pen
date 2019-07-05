@@ -2,12 +2,14 @@ import { vec3 } from 'gl-matrix';
 
 export type TrackerCore = {
   readonly ctx: TrackerContext;
-  push: (input: TrackerInput) => void;
+  pushMotion: (motion: TrackerMotionInput) => void;
+  pushOrientation: (orientation: TrackerOrientationInput) => void;
   snapshot: (range?: number) => Snapshot;
 };
 
 export type Snapshot = {
   points: Pick<Point, 'position' | 'movement' | 'timestamp'>[];
+  normalized: number[][];
 };
 
 export type Point = {
@@ -16,12 +18,12 @@ export type Point = {
   movement: number;
   interval: number;
   timestamp: number;
-  weight: LeastSquaresWeight;
+  leastSquares: LeastSquaresComponents;
 };
 
 export type CoordKey = 0 | 1 | 2;
 export type WeightElementKey = 'x' | 'y' | 'z' | 'xx' | 'yy' | 'zz' | 'xy' | 'yz' | 'zx' | 'one';
-export type LeastSquaresWeight = Record<WeightElementKey, number>;
+export type LeastSquaresComponents = Record<WeightElementKey, number>;
 
 export type TrackerContext = {
   shouldUpdate: boolean;
@@ -37,10 +39,17 @@ export type TrackerAccumulator = {
   timestamp: number;
 };
 
-export type TrackerInput = {
+export type TrackerMotionInput = {
   acceleration: DeviceMotionEventAcceleration | null;
   rotationRate: DeviceMotionEventRotationRate | null;
   interval: number;
+};
+
+export type TrackerOrientationInput = {
+  absolute: boolean;
+  alpha: number | null;
+  beta: number | null;
+  gamma: number | null;
 };
 
 export type TrackerOptions = {
@@ -48,7 +57,7 @@ export type TrackerOptions = {
   speedRegistancePerSec: number;
 };
 
-export type PushInput = (input: TrackerInput) => void;
+export type PushInput = (input: TrackerMotionInput) => void;
 
 export type UseTracker = () => void;
 export type UseTrackerModule = () => void;
