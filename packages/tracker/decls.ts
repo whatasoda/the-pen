@@ -5,6 +5,7 @@ export type TrackerCore = {
   pushMotion: (motion: TrackerMotionInput) => void;
   pushOrientation: (orientation: TrackerOrientationInput) => void;
   snapshot: (range?: number) => Snapshot;
+  takeChangeAmount: (range0: number, range1: number) => number;
 };
 
 export type Snapshot = {

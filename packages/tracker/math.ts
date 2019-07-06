@@ -6,9 +6,34 @@ import {
   LeastSquaresComponents,
   TrackerOptions,
   TrackerContext,
+  TrackerOrientationInput,
 } from './decls';
 
 const V = vec3.create();
+
+const assignMotion = (ctx: TrackerContext, input: TrackerMotionInput) => {
+  const point = calculatePoint(ctx.acc, input, ctx.options);
+  if (!point) return;
+  ctx.points.push(point);
+  ctx.shouldUpdate = true;
+};
+
+const assignOrientation = (ctx: TrackerContext, input: TrackerOrientationInput) => {
+  const { alpha, beta, gamma } = input;
+  vec3.set(ctx.acc.rotation, alpha || 0, beta || 0, gamma || 0);
+};
+
+const getPoints = (ctx: TrackerContext, range: number): Point[] => {
+  const { acc, options, points } = ctx;
+  if (ctx.shouldUpdate) {
+    ctx.shouldUpdate = false;
+    ctx.points = getPoints(ctx, options.maxTimeRange);
+  }
+  const breakpoint = acc.timestamp - Math.min(Math.max(0, range), options.maxTimeRange);
+
+  const i = points.findIndex(({ timestamp }) => timestamp > breakpoint);
+  return points.slice(i !== -1 ? i : 0);
+};
 
 /**
  * It calculate tracked point in absolute coordinate system.
@@ -24,7 +49,6 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerMotionInput, opti
   const { speedRegistancePerSec } = options;
   const {
     interval: ms,
-    // rotationRate: { gamma, beta, alpha },
     acceleration: { y, x, z },
   } = input;
   const interval = ms;
@@ -36,7 +60,6 @@ const calculatePoint = (acc: TrackerAccumulator, input: TrackerMotionInput, opti
    * We want to apply invert rotation to acceleration.
    * Euler order of `DeviceMotionEventRotationRate` is Z-X-Y.
    */
-  // const [rZ, rX, rY] = vec3.scaleAndAdd(rotation, rotation, [alpha || 0, beta || 0, gamma || 0], interval * 1e-3);
   const [rZ, rX, rY] = rotation;
   quat.fromEuler(Q, -rY, -rX, -rZ);
   const [aY, aX, aZ] = vec3.transformQuat(V, [y || 0, x || 0, z || 0], Q);
@@ -209,11 +232,11 @@ const calculateLeastSquares = (u: number, uv: number, v: number, vv: number, one
   return [gradient, intercept];
 };
 
-const getPoints = ({ acc, options, points }: TrackerContext, range: number): Point[] => {
-  const breakpoint = acc.timestamp - Math.min(Math.max(0, range), options.maxTimeRange);
-
-  const i = points.findIndex(({ timestamp }) => timestamp > breakpoint);
-  return points.slice(i !== -1 ? i : 0);
+export {
+  assignMotion,
+  assignOrientation,
+  calculatePoint,
+  calculateRegressionDirection,
+  solveLeastSquaresMethod,
+  getPoints,
 };
-
-export { calculatePoint, calculateRegressionDirection, solveLeastSquaresMethod, getPoints };

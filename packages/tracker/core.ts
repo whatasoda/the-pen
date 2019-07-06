@@ -1,6 +1,6 @@
 import { vec3, mat4 } from 'gl-matrix';
 import { TrackerContext, TrackerCore, TrackerOptions } from './decls';
-import { calculatePoint, getPoints, calculateRegressionDirection } from './math';
+import { getPoints, calculateRegressionDirection, assignMotion, assignOrientation } from './math';
 
 const DEFAULT_TIME_RANGE = 1;
 const DEFAULT_SPEED_REGISTANCE = 5;
@@ -29,25 +29,27 @@ const axisZ = vec3.create();
 const axisX = vec3.create();
 const transform4 = mat4.create();
 
+const axis0 = vec3.create();
+const axis1 = vec3.create();
+const origin0 = vec3.create();
+const origin1 = vec3.create();
+
 const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
   const ctx = createContext(options);
 
-  const pushMotion: TrackerCore['pushMotion'] = (motion) => {
-    const point = calculatePoint(ctx.acc, motion, ctx.options);
-    if (!point) return;
-    ctx.points.push(point);
-    ctx.shouldUpdate = true;
-  };
+  const pushMotion: TrackerCore['pushMotion'] = assignMotion.bind(null, ctx);
+  const pushOrientation: TrackerCore['pushOrientation'] = assignOrientation.bind(null, ctx);
 
-  const pushOrientation: TrackerCore['pushOrientation'] = ({ alpha, beta, gamma }) => {
-    vec3.set(ctx.acc.rotation, alpha || 0, beta || 0, gamma || 0);
+  const takeChangeAmount = (range0: number, range1: number) => {
+    const points0 = getPoints(ctx, range0);
+    const points1 = getPoints(ctx, range1);
+    calculateRegressionDirection(axis0, origin0, points0);
+    calculateRegressionDirection(axis1, origin1, points1);
+    const amount = vec3.dot(axis0, axis1);
+    return amount;
   };
 
   const snapshot: TrackerCore['snapshot'] = (range) => {
-    if (ctx.shouldUpdate) {
-      ctx.points = getPoints(ctx, ctx.options.maxTimeRange);
-      ctx.shouldUpdate = false;
-    }
     const src = getPoints(ctx, range || 0);
 
     if (src.length < 2) return { points: [], normalized: [] };
@@ -94,6 +96,7 @@ const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
     pushMotion,
     pushOrientation,
     snapshot,
+    takeChangeAmount,
   };
 };
 
