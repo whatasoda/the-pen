@@ -22,7 +22,8 @@ export type Fiber = {
   };
   state: {
     slack: number;
-    velocity: number;
+    selfVelocity: number;
+    fiberVelocity: number;
     volume: number;
   };
 };
@@ -31,29 +32,27 @@ const useFibers = (callback: FiberCallback, fiberCreater: () => Fiber[], inputs:
   const { scope, handle } = useMemo(() => {
     const scope: FiberScope = { fibers: [] };
     const handle: GlobalMotionListener = ({ acceleration, interval }) => {
-      /* eslint-disable no-param-reassign */
       scope.fibers.forEach(({ props, state }, i) => {
         const { direction, maxSlack, rewindPower } = props;
-        const mag = vec3.length(acceleration);
-        const impactRate = (Math.max(0.5, vec3.dot(direction, acceleration) / mag) - 0.5) * 2;
-        const impact = impactRate * interval * mag;
-        const relativeMovement = impact * interval * 10;
-        const rewind = state.velocity * rewindPower * interval;
+        // const mag = vec3.length(acceleration);
+        // const impactRate = (Math.max(0.5, vec3.dot(direction, acceleration) / mag) - 0.5) * 2;
+        // const impact = impactRate * interval * mag;
+        const impact = vec3.dot(direction, acceleration) * interval;
+        // const rewind = state.fiberVelocity * rewindPower * interval;
 
-        state.velocity = Math.max(0, state.velocity - rewind);
-        state.slack = Math.min(maxSlack, state.slack - relativeMovement + state.velocity * interval);
-        if (state.slack < 0) {
-          state.velocity += impact;
+        const selfVelocity = state.selfVelocity + impact;
+        const fiberVelocity = Math.max(0, state.fiberVelocity * rewindPower * interval);
+        const slack = Math.min(maxSlack, state.slack - (selfVelocity - fiberVelocity) * interval);
+
+        state.selfVelocity = selfVelocity;
+        state.fiberVelocity = fiberVelocity;
+        state.slack = slack;
+        if (slack < 0) {
+          state.fiberVelocity = Math.max(0, selfVelocity);
         }
 
-        state.volume = Math.max(0, -state.slack);
-        if (!i) {
-          /* eslint-disable no-console */
-          console.log(impactRate, state.slack, state.velocity);
-          /* eslint-enable no-console */
-        }
+        state.volume = Math.max(0, state.fiberVelocity);
       });
-      /* eslint-enable no-param-reassign */
 
       if (scope.callback) {
         scope.callback(scope.fibers);

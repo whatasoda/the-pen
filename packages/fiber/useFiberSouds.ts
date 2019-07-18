@@ -28,11 +28,12 @@ const useFiberSounds = (freqs: number[]) => {
         freq: osc.frequency.value,
         length: (Math.random() + 0.4) * 20,
         maxSlack: 0.4,
-        rewindPower: 2,
+        rewindPower: 0.7,
       },
       state: {
         slack: 0.2,
-        velocity: 0,
+        selfVelocity: 0,
+        fiberVelocity: 0,
         volume: 0,
       },
     }));
