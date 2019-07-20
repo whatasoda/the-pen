@@ -3,7 +3,6 @@ import ip from 'ip';
 import MiniCssExtractPlugin from 'mini-css-extract-plugin';
 import OptimizeCSSAssetsPlugin from 'optimize-css-assets-webpack-plugin';
 import path from 'path';
-import multi from 'multi-loader';
 import { Configuration } from 'webpack';
 import TerserJSPlugin from 'terser-webpack-plugin';
 
@@ -48,7 +47,14 @@ export default (): Configuration => ({
       {
         test: /\.tsx?$/,
         exclude: /node_modules/,
-        loader: multi(['thread-loader!null-loader!eslint-loader', 'ts-loader?transpileOnly']),
+        loader: [
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true,
+            },
+          },
+        ],
       },
       {
         test: /\.html$/,
