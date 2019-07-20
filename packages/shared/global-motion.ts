@@ -30,7 +30,7 @@ useGlobalMotion.useModule = () => {
       window.addEventListener('deviceorientation', orientationHandler);
     }
     return () => {
-      if (!moduleCount--) {
+      if (!--moduleCount) {
         window.removeEventListener('devicemotion', motionHandler);
         window.removeEventListener('deviceorientation', orientationHandler);
       }
