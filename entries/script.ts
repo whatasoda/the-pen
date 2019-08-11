@@ -1,6 +1,7 @@
 import './index.html';
 import React from 'react';
 import { render } from 'react-dom';
-import Nyoro from '../packages/nyoro/components/Nyoro';
+// import Nyoro from '../packages/nyoro/components/Nyoro';
+import Byon from '../src/nyoro/components/Byon';
 
-render(React.createElement(Nyoro, {}), document.getElementById('App'));
+render(React.createElement(Byon, {}), document.getElementById('App'));

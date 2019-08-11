@@ -9,7 +9,7 @@ export type TrackerCore = {
 };
 
 export type Snapshot = {
-  points: Pick<Point, 'position' | 'movement' | 'timestamp'>[];
+  points: Pick<Point, 'position' | 'movement' | 'timestamp' | 'velocity'>[];
   normalized: number[][];
 };
 

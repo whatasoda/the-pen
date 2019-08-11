@@ -1,6 +1,6 @@
 import { vec3, mat4 } from 'gl-matrix';
 import { TrackerContext, TrackerCore, TrackerOptions } from './decls';
-import { getPoints, calculateRegressionDirection, assignMotion, assignOrientation } from './math';
+import { getPoints, calculateRegressionDirection, assignMotion, assignOrientation, moveInFiberField } from './math';
 
 const DEFAULT_TIME_RANGE = 1;
 const DEFAULT_SPEED_REGISTANCE = 5;
@@ -37,7 +37,9 @@ const origin1 = vec3.create();
 const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
   const ctx = createContext(options);
 
-  const pushMotion: TrackerCore['pushMotion'] = assignMotion.bind(null, ctx);
+  const pushMotion: TrackerCore['pushMotion'] = (motion) => {
+    moveInFiberField(ctx, motion, 0.1, 0.3);
+  };
   const pushOrientation: TrackerCore['pushOrientation'] = assignOrientation.bind(null, ctx);
 
   const takeChangeAmount = (range0: number, range1: number) => {
@@ -77,16 +79,17 @@ const createTrackerCore = (options: Partial<TrackerOptions>): TrackerCore => {
 
     let zmax = 0;
     let zmin = 0;
-    const points = src.map(({ position: raw, movement, timestamp }) => {
-      vec3.transformMat4(P, raw, transform4);
+    const points = src.map(({ position: P, velocity: V, movement, timestamp }) => {
+      // vec3.transformMat4(P, raw, transform4);
       const position = [...P];
+      const velocity = [...V];
       zmax = Math.max(zmax, position[2]);
       zmin = Math.min(zmin, position[2]);
-      return { position, movement, timestamp };
+      return { position, movement, velocity, timestamp };
     });
     const length = zmax - zmin;
 
-    const normalized = points.map(({ position: [x, y, z] }) => [(x ** 2 + y ** 2) ** 0.5 / length, z / length]);
+    const normalized = points.map(({ position: [x, y, z] }) => [x, z]);
 
     return { points, normalized };
   };

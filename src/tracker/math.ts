@@ -1,18 +1,36 @@
 import { vec3, glMatrix, quat } from 'gl-matrix';
-import {
-  Point,
-  TrackerAccumulator,
-  TrackerMotionInput,
-  LeastSquaresComponents,
-  TrackerOptions,
-  TrackerContext,
-  TrackerOrientationInput,
-} from './decls';
+import { Point, TrackerMotionInput, LeastSquaresComponents, TrackerContext, TrackerOrientationInput } from './decls';
 
 const V = vec3.create();
 
+const moveInFiberField = (ctx: TrackerContext, input: TrackerMotionInput, radius: number, stretch: number) => {
+  const point = calculatePoint(ctx, input);
+  if (!point) return 0;
+
+  const { direction } = moveInFiberField.tmp;
+  const { position, velocity } = ctx.acc;
+
+  vec3.normalize(direction, position);
+
+  const distance = vec3.length(position);
+  vec3.scale(position, direction, Math.max(0, Math.min(distance, radius)));
+  const ceof = Math.min(1, distance / radius);
+
+  vec3.scale(V, direction, Math.max(0, ceof ** 4 * vec3.dot(direction, velocity)));
+  point.position = [...position];
+  point.velocity = [...V];
+  ctx.points.push(point);
+  ctx.shouldUpdate = true;
+
+  // vec3.scaleAndAdd(velocity, velocity, velocity, -0.2);
+  vec3.scaleAndAdd(velocity, velocity, position, -0.2);
+};
+moveInFiberField.tmp = {
+  direction: vec3.create(),
+};
+
 const assignMotion = (ctx: TrackerContext, input: TrackerMotionInput) => {
-  const point = calculatePoint(ctx.acc, input, ctx.options);
+  const point = calculatePoint(ctx, input);
   if (!point) return;
   ctx.points.push(point);
   ctx.shouldUpdate = true;
@@ -42,19 +60,19 @@ const getPoints = (ctx: TrackerContext, range: number): Point[] => {
  * @param input
  * @param options
  */
-const calculatePoint = (acc: TrackerAccumulator, input: TrackerMotionInput, options: TrackerOptions): Point | null => {
+const calculatePoint = (ctx: TrackerContext, input: TrackerMotionInput): Point | null => {
   if (!input.acceleration || !input.rotationRate) return null;
 
   const { Q } = calculatePoint;
-  const { speedRegistancePerSec } = options;
+  const { speedRegistancePerSec } = ctx.options;
   const {
     interval: ms,
     acceleration: { y, x, z },
   } = input;
   const interval = ms;
 
-  acc.timestamp += interval;
-  const { rotation, position, velocity, timestamp } = acc;
+  ctx.acc.timestamp += interval;
+  const { rotation, position, velocity, timestamp } = ctx.acc;
 
   /**
    * We want to apply invert rotation to acceleration.
@@ -233,6 +251,7 @@ const calculateLeastSquares = (u: number, uv: number, v: number, vv: number, one
 };
 
 export {
+  moveInFiberField,
   assignMotion,
   assignOrientation,
   calculatePoint,
