@@ -15,6 +15,7 @@ export default (): Configuration => ({
   devtool: 'source-map',
   entry: {
     script: path.resolve(srcRoot, 'script.ts'),
+    pc: path.resolve(srcRoot, 'pc.ts'),
   },
   output: {
     path: distRoot,

@@ -1,5 +1,5 @@
 import { useMemo, useEffect } from 'react';
-import { vec3 } from 'gl-matrix';
+import { vec3, quat } from 'gl-matrix';
 import useGlobalMotion, { GlobalMotionListener } from '../shared/global-motion';
 
 // const clamp = (min: number, value: number, max: number) => Math.max(min, Math.min(value, max));
@@ -29,6 +29,9 @@ export type Fiber = {
     selfVelocity: number;
     fiberVelocity: number;
     volume: number;
+    u: number;
+    v: number;
+    rot: number;
   };
 };
 
@@ -37,55 +40,56 @@ type Piece = {
   movement: number[];
 };
 
-const STANDBY_THRESHOLD = 0.2;
-const STANDBY_WAIT_DURATION = 50;
-const STANDBY_ACCEPTABLE_ERROR_COUNT = 5;
-const STANDBY_RESISTANCE = 0.1;
+// const STANDBY_THRESHOLD = 0.2;
+// const STANDBY_WAIT_DURATION = 50;
+// const STANDBY_ACCEPTABLE_ERROR_COUNT = 5;
+// const STANDBY_RESISTANCE = 0.1;
 
 const TAIL_DURATION = 0.3;
 
-const DIRECTION_WEIGHT_THRESHOLD = Math.cos((20 / 180) * Math.PI);
+const DIRECTION_WEIGHT_THRESHOLD = Math.cos((45 / 180) * Math.PI);
 const DIRECTION_WEIGHT_COEF = 1 / (1 - DIRECTION_WEIGHT_THRESHOLD);
 
-const useFibers = (callback: FiberCallback, fiberCreater: () => Fiber[], inputs: any[]) => {
+const useFibers = (callback: FiberCallback, fiberCreater: () => Fiber[], _: any[]) => {
   const { scope, handle } = useMemo(() => {
     const scope: FiberScope = { velocity: vec3.create(), direction: vec3.create(), fibers: [] };
 
-    const standby = {
-      isStandby: false,
-      timeout: null as null | number,
-      errorCount: 0,
-    };
+    // const standby = {
+    //   isStandby: false,
+    //   timeout: null as null | number,
+    //   errorCount: 0,
+    // };
 
     let now = 0;
     let chain: Piece[] = [];
     const movement = vec3.create();
     const velocity = vec3.create();
     const direction = vec3.create();
+    const q = quat.create();
 
-    const updateStandby: GlobalMotionListener = ({ acceleration }) => {
-      if (vec3.length(acceleration) < STANDBY_THRESHOLD) {
-        if (standby.timeout !== null) return;
-        if (standby.isStandby) {
-          standby.timeout = (setTimeout(() => {
-            standby.errorCount--;
-          }, STANDBY_WAIT_DURATION / STANDBY_ACCEPTABLE_ERROR_COUNT) as unknown) as number;
-        } else {
-          standby.timeout = (setTimeout(() => {
-            standby.errorCount = 0;
-            standby.isStandby = true;
-          }, STANDBY_WAIT_DURATION) as unknown) as number;
-        }
-      } else {
-        if (!standby.isStandby && standby.timeout === null) return;
-        if (++standby.errorCount < STANDBY_ACCEPTABLE_ERROR_COUNT) return;
-        if (standby.timeout !== null) {
-          clearTimeout(standby.timeout);
-        }
-        standby.isStandby = false;
-        standby.errorCount = 0;
-      }
-    };
+    // const updateStandby: GlobalMotionListener = ({ acceleration }) => {
+    //   if (vec3.length(acceleration) < STANDBY_THRESHOLD) {
+    //     if (standby.timeout !== null) return;
+    //     if (standby.isStandby) {
+    //       standby.timeout = (setTimeout(() => {
+    //         standby.errorCount--;
+    //       }, STANDBY_WAIT_DURATION / STANDBY_ACCEPTABLE_ERROR_COUNT) as unknown) as number;
+    //     } else {
+    //       standby.timeout = (setTimeout(() => {
+    //         standby.errorCount = 0;
+    //         standby.isStandby = true;
+    //       }, STANDBY_WAIT_DURATION) as unknown) as number;
+    //     }
+    //   } else {
+    //     if (!standby.isStandby && standby.timeout === null) return;
+    //     if (++standby.errorCount < STANDBY_ACCEPTABLE_ERROR_COUNT) return;
+    //     if (standby.timeout !== null) {
+    //       clearTimeout(standby.timeout);
+    //     }
+    //     standby.isStandby = false;
+    //     standby.errorCount = 0;
+    //   }
+    // };
 
     const handle: GlobalMotionListener = (motion) => {
       const { acceleration, interval } = motion;
@@ -120,6 +124,11 @@ const useFibers = (callback: FiberCallback, fiberCreater: () => Fiber[], inputs:
         const speed = vec3.dot(axis, velocity) * weight;
         const u = vec3.dot(U, velocity) * weight;
         const v = vec3.dot(V, velocity) * weight;
+
+        quat.rotationTo(q, [u, v, 0], [state.u, state.v, 0]);
+        state.u = u;
+        state.v = v;
+        state.rot = q[2] * q[3];
         // const rewind = state.fiberVelocity * rewindPower * interval;
 
         const selfVelocity = speed;
@@ -151,7 +160,7 @@ const useFibers = (callback: FiberCallback, fiberCreater: () => Fiber[], inputs:
   scope.callback = callback;
   useEffect(() => {
     scope.fibers = fiberCreater();
-  }, inputs);
+  }, [fiberCreater, scope.fibers]);
 
   useGlobalMotion(handle);
 };
