@@ -4,8 +4,7 @@
     "rootDir": "./",
     "typeRoots": [
       "node_modules/@types",
-      "src/shared/types",
-      "scripts/types"
+      "src/types",
     ]
   },
   "exclude": [
