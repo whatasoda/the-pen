@@ -1,12 +1,14 @@
 interface InstrumentConfig {}
 
 interface DeviceMotionInput {
-  acceleration: DeviceAcceleration | null;
-  accelerationIncludingGravity: DeviceAcceleration | null;
-  rotationRate: DeviceRotationRate | null;
+  acceleration: DeviceAcceleration;
+  accelerationIncludingGravity: DeviceAcceleration;
+  rotationRate: DeviceRotationRate;
+  interval: number;
 }
 
 interface DeviceMotionOutput {
+  dt: number;
   rotationRate: number[];
   rotation: number[];
   acceleration: number[];
