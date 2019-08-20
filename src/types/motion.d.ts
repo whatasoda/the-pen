@@ -1,7 +1,5 @@
 type EulerKey = 'alpha' | 'beta' | 'gamma';
 
-interface InstrumentConfig {}
-
 interface DeviceMotionInput {
   acceleration: DeviceAcceleration;
   accelerationIncludingGravity: DeviceAcceleration;
@@ -31,12 +29,6 @@ interface StabilizerInput {
 
 interface DeviceMotionConstant {
   kalman: Record<EulerKey, KalmanConstant>;
-}
-
-interface KalmanConstant {
-  QAngle: number;
-  QBias: number;
-  RMeasure: number;
 }
 
 interface HeadMotionConstant {
