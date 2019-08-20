@@ -1,11 +1,5 @@
-interface KalmanConstant {
-  QAngle: number;
-  QBias: number;
-  RMeasure: number;
-}
-
 export type Kalman = {
-  (newAngle: number, newRage: number, dt: number): [number, number];
+  (newAngle: number, newRage: number, dt: number): number;
   constant(newConstants: Partial<KalmanConstant>): void;
 };
 
@@ -47,7 +41,7 @@ const createKalmanFilter = ({ QAngle, QBias, RMeasure }: KalmanConstant): Kalman
     P10 -= K1 * P00Temp;
     P11 -= K1 * P01Temp;
 
-    return [angle, rate];
+    return angle;
   };
 
   kalman.constant = (newConstants: Partial<KalmanConstant>) => {
