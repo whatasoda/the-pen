@@ -9,7 +9,7 @@ const createStabilizer = ({ elasticity: k, viscous: h }: StabilizerConstant) => 
   const P_u = vec3.create();
   const V_u = vec3.create();
 
-  const stabilizer = ({ dt, movement }: StabilizerInput) => {
+  const stabilizer = (movement: V3, dt: number) => {
     vec3.add(P, P, movement);
 
     vec3.normalize(P_u, P);
