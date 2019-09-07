@@ -1,3 +1,4 @@
+type V2 = [number, number];
 type V3 = [number, number, number];
 type V4 = [number, number, number, number];
 type M4 = [

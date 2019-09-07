@@ -1,6 +1,7 @@
 {
   "extends": "@whatasoda/tsconfig",
   "compilerOptions": {
+    "downlevelIteration": true,
     "rootDir": "./",
     "typeRoots": [
       "node_modules/@types",

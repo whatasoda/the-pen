@@ -12,7 +12,7 @@ const App = () => {
 
   useEffect(() => {
     const dm = createDeviceMotion({
-      direction: [0.1, 0, 1],
+      direction: [0.01, 0, 1],
       elasticity: 100,
       twistCycle: 10,
       viscous: 10,
@@ -39,7 +39,7 @@ const App = () => {
       'devicemotion',
       ({ acceleration, rotationRate, interval, accelerationIncludingGravity }) => {
         if (!acceleration || !rotationRate || !accelerationIncludingGravity) return;
-        cb('interval', interval);
+        // cb('interval', interval);
         aa = dm({ acceleration, interval, orientation, rotationRate, accelerationIncludingGravity }, cb);
       },
     );
@@ -48,12 +48,12 @@ const App = () => {
 
     const update = () => {
       if (aa) {
-        const { twist, acceleration, jerk, attack, movment } = aa;
+        const { twist, acceleration, jerk, attack, movment, dot, pow } = aa;
         setTwist(twist);
         setVelocity(movment);
         setAcceleration(acceleration);
         setJerk(jerk);
-        fiber.update({ attack, velocity: movment } as any);
+        fiber.update({ attack, velocity: movment, dot, pow } as any);
         attack.forEach((v, i) => cb(`attack:${i}`, v));
       }
       requestAnimationFrame(update);
