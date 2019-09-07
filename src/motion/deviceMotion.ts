@@ -2,11 +2,11 @@ import { quat, vec3, mat4 } from 'gl-matrix';
 import { eulerToArray, cartesianToArray } from '../utils/converter';
 import { completeAxis } from '../utils/vector';
 import createStabilizer from './stabilizer';
-import createQuatFilter from '../utils/quatFilter';
+import AHRS from 'ahrs';
 
 type V3 = [number, number, number];
 
-const createDeviceMotion = ({ direction, twistCycle, elasticity, viscous }: DeviceMotionConstant) => {
+const createDeviceMotion = ({ direction, elasticity, viscous }: DeviceMotionConstant) => {
   const stabilizer = createStabilizer({ elasticity, viscous });
   /**
    * Tmp: temp
@@ -15,7 +15,6 @@ const createDeviceMotion = ({ direction, twistCycle, elasticity, viscous }: Devi
    * C: coordinate
    * P: point
    */
-  const Tmp_twist = vec3.create();
   const Tmp_quat = quat.create();
 
   const Q_angle = quat.create();
@@ -41,11 +40,7 @@ const createDeviceMotion = ({ direction, twistCycle, elasticity, viscous }: Devi
 
   const m = mat4.identity(mat4.create());
   mat4.multiplyScalar(m, m, 0.01);
-  const quatFilter = createQuatFilter({
-    Q: Array.from(m) as M4,
-    R: Array.from(m) as M4,
-    bias: [0, 0, 0],
-  });
+  const attack = vec3.create();
 
   const deviceMotion = (input: DeviceMotionInput, cb: (k: string, v: number) => void = () => {}) => {
     eulerToArray(input.orientation).forEach((v, i) => cb(`orientation:${i}`, v));
@@ -53,30 +48,40 @@ const createDeviceMotion = ({ direction, twistCycle, elasticity, viscous }: Devi
     cartesianToArray(input.acceleration).forEach((v, i) => cb(`acceleration:${i}`, v));
     applyInput(input);
     Q_angle.forEach((v, i) => cb(`Q_angle:${i}`, v * 100));
-    start();
+
     const dt = input.interval;
     updateHeadMovement(dt);
-    updateTwist();
     end();
 
-    const { acceleration, velocity, jerk } = stabilizer([...V_movement] as V3, dt);
-    return { acceleration, velocity, jerk, twist };
-  };
+    const movment = [...V_movement];
+    const { acceleration, velocity, jerk } = stabilizer(movment as V3, dt);
 
-  const applyInput = ({ interval: dt, acceleration, orientation, rotationRate }: DeviceMotionInput) => {
+    return { acceleration, velocity, jerk, twist, movment, attack: [...attack] };
+  };
+  const madgwick = new AHRS({
+    algorithm: 'Madgwick',
+    sampleInterval: 60,
+  });
+  const a = vec3.create();
+  const D2R = Math.PI / 180;
+
+  const applyInput = ({
+    interval: dt,
+    acceleration,
+    accelerationIncludingGravity,
+    orientation,
+    rotationRate,
+  }: DeviceMotionInput) => {
+    vec3.sub(a, cartesianToArray(accelerationIncludingGravity), cartesianToArray(acceleration));
+    const [gx, gy, gz] = eulerToArray(rotationRate);
+    const [mx, my, mz] = eulerToArray(orientation);
+    madgwick.update(gx * D2R, gy * D2R, gz * D2R, a[0], a[1], a[2], mx * D2R, my * D2R, mz * D2R, dt);
+
     vec3.scaleAndAdd(V_velocity, V_velocity, cartesianToArray(acceleration), dt);
     vec3.scale(V_velocity, V_velocity, 0.99);
 
-    quat.set(Q_angle, ...quatFilter({ angle: orientation, dt, rate: rotationRate }));
-  };
-
-  const start = () => {
-    vec3.transformQuat(P_0_curr, C_0, Q_angle);
-    vec3.transformQuat(P_1_curr, C_1, Q_angle);
-    vec3.transformQuat(P_2_curr, C_2, Q_angle);
-    vec3.normalize(P_0_curr, P_0_curr);
-    vec3.normalize(P_1_curr, P_1_curr);
-    vec3.normalize(P_2_curr, P_2_curr);
+    const { w, x, y, z } = madgwick.getQuaternion();
+    quat.set(Q_angle, x, y, z, w);
   };
 
   const end = () => {
@@ -85,22 +90,10 @@ const createDeviceMotion = ({ direction, twistCycle, elasticity, viscous }: Devi
     vec3.copy(P_2_prev, P_2_curr);
   };
 
-  const updateTwist = () => {
-    vec3.sub(Tmp_twist, P_0_curr, P_0_prev);
-    vec3.scaleAndAdd(Tmp_twist, Tmp_twist, P_2_curr, vec3.dot(P_2_curr, Tmp_twist));
-    const sign = Math.sign(vec3.dot(P_1_curr, Tmp_twist));
-
-    const cos = 1 - vec3.sqrLen(Tmp_twist) / 2;
-    twist += (sign * Math.acos(Math.max(Math.min(1, cos), -1))) / 10;
-    if (twist < 0) {
-      twist += twistCycle;
-    } else if (twist > twistCycle) {
-      twist -= twistCycle;
-    }
-  };
-
   const updateHeadMovement = (dt: number) => {
     vec3.transformQuat(P_2_curr, C_2, Q_angle);
+    vec3.normalize(P_2_curr, P_2_curr);
+
     if (first) {
       vec3.scale(V_movement, V_velocity, dt);
       first = false;

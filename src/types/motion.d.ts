@@ -8,6 +8,7 @@ interface DeviceMotionConstant {
 
 interface DeviceMotionInput {
   acceleration: CartesianCoord;
+  accelerationIncludingGravity: CartesianCoord;
   rotationRate: EulerRotation;
   orientation: EulerRotation;
   interval: number;
