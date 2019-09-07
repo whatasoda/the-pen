@@ -1,7 +1,6 @@
 import { vec3, quat, mat4, vec4 } from 'gl-matrix';
 import { eulerToArray } from './converter';
 
-// const D2R = Math.PI / 180;
 const I = mat4.identity(mat4.create());
 
 /**
