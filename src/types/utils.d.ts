@@ -15,3 +15,11 @@ interface QuatFilterInput {
   angle: EulerRotation;
   dt: number;
 }
+
+interface VisualizerHandle {
+  entry(label: string, color: number, values: V3): void;
+}
+interface VisualizerEntry {
+  values: V3;
+  color: number;
+}
