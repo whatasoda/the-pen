@@ -25,15 +25,20 @@ const Visualizer = memo(
       [],
     );
 
-    const { current: canvas } = canvasRef;
-
     useEffect(() => {
+      const { current: canvas } = canvasRef;
       if (!canvas) return;
       let alive = true;
 
+      canvas.width = canvas.clientWidth;
+      canvas.height = canvas.clientHeight;
+
       const scene = new Scene();
       const camera = new PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+      camera.position.set(2, 2, 2);
+      camera.lookAt(0, 0, 0);
       const renderer = new WebGLRenderer({ canvas });
+      renderer.setClearColor(0x666666);
 
       const render = () => {
         Object.entries(INTERNAL.entries).forEach(([key, { values, color }]) => {
@@ -47,7 +52,9 @@ const Visualizer = memo(
             INTERNAL.helpers[key] = [vec, helper];
           }
           const [vec, helper] = INTERNAL.helpers[key];
-          helper.setDirection(vec.set(...values));
+          const length = vec.set(...values).length();
+          helper.setLength(length);
+          helper.setDirection(vec.normalize());
         });
         renderer.render(scene, camera);
 
@@ -58,7 +65,7 @@ const Visualizer = memo(
       return () => {
         alive = false;
       };
-    }, [canvas]);
+    }, []);
 
     return <Canvas ref={canvasRef} />;
   }),
@@ -68,6 +75,7 @@ const Canvas = styled.canvas`
   position: fixed;
   width: 100vw;
   height: 100vh;
+  z-index: -1;
 `;
 
 export default Visualizer;
