@@ -1,29 +1,36 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import createDeviceMotion from './motion/deviceMotion';
 import createFiber from './instrument/fiber';
+import Visualizer from './utils/visualizer';
+import GlobalStyle from './globalStyle';
 
 const App = () => {
-  const [twist, setTwist] = useState(0);
-  const [velocity, setVelocity] = useState([0, 0, 0]);
-  const [jerk, setJerk] = useState([0, 0, 0]);
-  const [acceleration, setAcceleration] = useState([0, 0, 0]);
-
+  const vis = useRef<VisualizerHandle>(null);
   const rec = useMemo<Record<string, number>>(() => ({}), []);
+  // const [twist, setTwist] = useState(0);
+  const [velocity, setVelocity] = useState([0, 0, 0]);
+  // const [jerk, setJerk] = useState([0, 0, 0]);
+  // const [acceleration, setAcceleration] = useState([0, 0, 0]);
 
   useEffect(() => {
-    const dm = createDeviceMotion({
-      direction: [0.01, 0, 1],
-      elasticity: 100,
-      twistCycle: 10,
-      viscous: 10,
-      weight: 1,
-    });
-    let orientation: EulerRotation = { alpha: 0, beta: 0, gamma: 0 };
-    type Aa = ReturnType<typeof dm>;
-    let aa: Aa | null = null;
+    const { entry }: VisualizerHandle = vis.current || { entry: () => {} };
     const cb = (k: string, v: number) => {
       rec[k] = v;
     };
+    const dm = createDeviceMotion(
+      {
+        direction: [0.01, 0, 1],
+        elasticity: 100,
+        twistCycle: 10,
+        viscous: 10,
+        weight: 1,
+      },
+      entry,
+      cb,
+    );
+    let orientation: EulerRotation = { alpha: 0, beta: 0, gamma: 0 };
+    type Aa = ReturnType<typeof dm>;
+    let aa: Aa | null = null;
 
     const fiber = createFiber([
       [[0, 1, 0], 400],
@@ -40,7 +47,7 @@ const App = () => {
       ({ acceleration, rotationRate, interval, accelerationIncludingGravity }) => {
         if (!acceleration || !rotationRate || !accelerationIncludingGravity) return;
         // cb('interval', interval);
-        aa = dm({ acceleration, interval, orientation, rotationRate, accelerationIncludingGravity }, cb);
+        aa = dm({ acceleration, interval, orientation, rotationRate, accelerationIncludingGravity });
       },
     );
 
@@ -48,30 +55,34 @@ const App = () => {
 
     const update = () => {
       if (aa) {
-        const { twist, acceleration, jerk, attack, movment, dot, pow } = aa;
-        setTwist(twist);
+        const { attack, movment, dot, pow } = aa;
+        // setTwist(twist);
         setVelocity(movment);
-        setAcceleration(acceleration);
-        setJerk(jerk);
+        // setAcceleration(acceleration);
+        // setJerk(jerk);
         fiber.update({ attack, velocity: movment, dot, pow } as any);
         attack.forEach((v, i) => cb(`attack:${i}`, v));
       }
       requestAnimationFrame(update);
     };
     update();
-  }, [rec]);
+  }, []);
 
   return (
-    <div>
+    <>
+      <GlobalStyle />
       <div>
-        <V entries={[[`twist ${twist}`, twist]]} mag={10} />
-        {rec.interval}
-        <V entries={Object.entries(rec)} mag={1} />
-        <V entries={Object.entries(velocity)} mag={500} />
-        <V entries={Object.entries(acceleration)} mag={50} />
-        <V entries={Object.entries(jerk)} mag={100} />
+        <Visualizer ref={vis} />
+        <div>
+          {/* <V entries={[[`twist ${twist}`, twist]]} mag={10} /> */}
+          {rec.interval}
+          <V entries={Object.entries(rec)} mag={1} />
+          <V entries={Object.entries(velocity)} mag={500} />
+          {/* <V entries={Object.entries(acceleration)} mag={50} /> */}
+          {/* <V entries={Object.entries(jerk)} mag={100} /> */}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
