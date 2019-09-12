@@ -1,12 +1,16 @@
 import { quat, vec3 } from 'gl-matrix';
-import { cartesianToArray } from '../utils/converter';
+import { cartesianToArray, eulerToArray } from '../utils/converter';
 import createStabilizer from './stabilizer';
 import createMotionCacher from './motionCacher';
 import createQuatFilter from '../utils/quatFilter';
 
 type V3 = [number, number, number];
 
-const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
+const createDeviceMotion = (
+  { elasticity, viscous }: DeviceMotionConstant,
+  entry: VisualizerHandle['entry'],
+  cb: (k: string, v: number) => void = () => {},
+) => {
   const stabilizer = createStabilizer({ elasticity, viscous });
   /**
    * Tmp: temp
@@ -15,11 +19,8 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
    * C: coordinate
    * P: point
    */
-  const Tmp_quat = quat.create();
-
   const Q_angle = quat.create();
   const V_velocity = vec3.create();
-  const V_movement = vec3.create();
 
   const C_alpha = vec3.create(); // z
   const C_beta = vec3.create(); // x
@@ -27,6 +28,9 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
   C_alpha.set([0, 1, 0]);
   C_beta.set([1, 0, 0]);
   C_gamma.set([0, 0, 1]);
+  entry('C_alpha', 0x550000, [...C_alpha] as V3);
+  entry('C_beta', 0x005500, [...C_beta] as V3);
+  entry('C_gamma', 0x000055, [...C_gamma] as V3);
 
   // alert([...C_alpha].join())
   // alert([...C_beta].join())
@@ -36,15 +40,19 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
   const P_gamma_curr = vec3.create();
 
   // const P_alpha_prev = vec3.create();
-  // const P_beta_prev = vec3.create();
+  const P_beta_prev = vec3.create();
   const P_gamma_prev = vec3.create();
+
+  // const M_alpha = vec3.create();
+  const M_beta = vec3.create();
+  const M_gamma = vec3.create();
 
   let twist: number = 0;
   let first: boolean = true;
 
   const attack = vec3.create();
 
-  const n = 0.03;
+  const n = 0.003;
   const quatFilter = createQuatFilter({
     bias: [0.02, 0.02, 0.02],
     Q: [n, 0, 0, 0, 0, n, 0, 0, 0, 0, n, 0, 0, 0, 0, n],
@@ -58,23 +66,27 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
   // const G = vec3.create();
   // const D2R = Math.PI / 180;
 
-  const motionCatcher = createMotionCacher({ bufferSize: 25 });
+  const motionCatcher = createMotionCacher({ bufferSize: 25, weightFactor: 0.2 });
 
-  const deviceMotion = (input: DeviceMotionInput, cb: (k: string, v: number) => void = () => {}) => {
+  const deviceMotion = (input: DeviceMotionInput) => {
     applyInput(input);
     Q_angle.forEach((v, i) => cb(`Q_angle:${i}`, v * 100));
 
     const dt = input.interval;
-    const { u, v, alpha, beta } = updateHeadMovement(dt);
+    const { u, v } = updateHeadMovement(dt);
+    entry('P_alpha', 0xaa0000, [...P_alpha_curr] as V3);
+    entry('P_beta', 0x00aa00, [...P_beta_curr] as V3);
+    entry('P_gamma', 0x0000aa, [...P_gamma_curr] as V3);
 
-    const movment = [...V_movement];
+    const movment = [...M_gamma];
     const { dot, pow } = motionCatcher.update([u, v]);
+    eulerToArray(input.orientation).forEach((v, i) => cb(`or${i}`, v));
+    eulerToArray(input.rotationRate).forEach((v, i) => cb(`ro${i}`, v));
     cb('u', u * 1000);
     cb('v', v * 1000);
     cb('dot', dot * 100);
     cb('pow', pow * 10000);
-    cb('alpha', alpha * 100);
-    cb('beta', beta * 100);
+    cb('hoge', pow * Math.pow(Math.max(0, dot), 10) * 10000);
     const { acceleration, velocity, jerk } = stabilizer(movment as V3, dt);
 
     return { acceleration, velocity, jerk, twist, movment, attack: [...attack], dot, pow };
@@ -110,8 +122,7 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
     );
   };
 
-  const tmp = vec3.create();
-  const updateHeadMovement = (dt: number) => {
+  const updateHeadMovement = (_: number) => {
     vec3.transformQuat(P_alpha_curr, C_alpha, Q_angle);
     vec3.transformQuat(P_beta_curr, C_beta, Q_angle);
     vec3.transformQuat(P_gamma_curr, C_gamma, Q_angle);
@@ -120,31 +131,41 @@ const createDeviceMotion = ({ elasticity, viscous }: DeviceMotionConstant) => {
     vec3.normalize(P_gamma_curr, P_gamma_curr);
 
     if (first) {
-      vec3.scale(V_movement, V_velocity, dt);
       first = false;
     } else {
-      vec3.scale(V_movement, P_gamma_curr, 1 / vec3.dot(P_gamma_curr, P_gamma_prev));
-      vec3.sub(V_movement, V_movement, P_gamma_prev);
-      vec3.transformQuat(V_movement, V_movement, quat.invert(Tmp_quat, Q_angle));
-      vec3.scaleAndAdd(V_movement, V_movement, V_velocity, dt);
+      vec3.scale(M_beta, P_beta_curr, 1 / vec3.dot(P_beta_curr, P_beta_prev));
+      vec3.scale(M_gamma, P_gamma_curr, 1 / vec3.dot(P_gamma_curr, P_gamma_prev));
+
+      vec3.sub(M_beta, M_beta, P_beta_prev);
+      vec3.sub(M_gamma, M_gamma, P_gamma_prev);
     }
 
-    const u = vec3.dot(C_alpha, V_movement);
-    const v = vec3.dot(C_beta, V_movement);
+    const mag_beta = Math.abs(vec3.dot(P_beta_curr, C_beta));
+    const mag_gamma = Math.abs(vec3.dot(P_gamma_curr, C_gamma));
 
-    vec3.cross(tmp, P_gamma_curr, C_beta);
-    let len = vec3.length(tmp);
-    // if (len < Math.sqrt(3) / 2) {
-    //   vec3.cross(tmp, P_gamma_curr, C_beta);
-    //   len = -vec3.length(tmp);
-    // }
-    const alpha = vec3.dot(P_alpha_curr, tmp) / len;
-    const beta = len;
+    const u_beta = -vec3.dot(C_beta, M_beta);
+    const u_gamma = vec3.dot(P_beta_curr, M_gamma);
+
+    const v_beta = vec3.dot(C_alpha, M_beta);
+    const v_gamma = vec3.dot(P_alpha_curr, M_gamma);
+
+    const u = u_gamma * mag_gamma + u_beta * mag_beta;
+    const v = v_beta * mag_gamma + v_gamma * mag_beta;
+    entry('uv', 0xffffff, [u, v, -1]);
+
+    // vec3.cross(tmp, P_gamma_curr, C_beta);
+    // let len = vec3.length(tmp);
+    // // if (len < Math.sqrt(3) / 2) {
+    // //   vec3.cross(tmp, P_gamma_curr, C_beta);
+    // //   len = -vec3.length(tmp);
+    // // }
+    // const alpha = vec3.dot(P_alpha_curr, tmp) / len;
+    // const beta = len;
 
     // vec3.copy(P_alpha_prev, P_alpha_curr);
-    // vec3.copy(P_beta_prev, P_beta_curr);
+    vec3.copy(P_beta_prev, P_beta_curr);
     vec3.copy(P_gamma_prev, P_gamma_curr);
-    return { u, v, alpha, beta };
+    return { u, v };
   };
 
   return deviceMotion;
