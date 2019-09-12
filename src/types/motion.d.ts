@@ -14,6 +14,11 @@ interface DeviceMotionInput {
   interval: number;
 }
 
+interface MotionCatcherConfigType {
+  bufferSize: number;
+  weightFactor: number;
+}
+
 interface StabilizerInput {
   dt: number;
   movement: number[];

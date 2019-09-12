@@ -1,20 +1,16 @@
 import { vec2 } from 'gl-matrix';
 
-interface MotionCatcherConfig {
-  bufferSize: number;
-}
-
-const createMotionCacher = ({ bufferSize }: MotionCatcherConfig) => {
+const createMotionCacher = ({ bufferSize, weightFactor }: MotionCatcherConfigType) => {
   const buffer = Array.from({ length: bufferSize }).map<V2>(() => [0, 0]);
   let pointer = 0;
   const curr = vec2.create();
   const mvmt = vec2.create();
+  const weight = Math.pow(weightFactor, 1 / bufferSize);
 
   const update = ([m0, m1]: V2) => {
     for (let i = 0; i < bufferSize; i++) {
-      buffer[i][0] += m0;
-      buffer[i][1] += m1;
-      // buffer[i][2] += m2;
+      buffer[i][0] = buffer[i][0] * weight + m0;
+      buffer[i][1] = buffer[i][1] * weight + m1;
     }
 
     curr.set(buffer[pointer]);
