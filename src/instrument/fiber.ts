@@ -16,10 +16,9 @@ const createFiber = (entries: [V3, number][]) => {
     return { axis, osc, gain, out: gain };
   });
 
-  const update = ({ velocity }: { attack: V3; velocity: V3 }) => {
+  const update = (velocity: V3) => {
     nodes.forEach(({ gain, axis }) => {
-      const volume = (dot(velocity, axis) * 100) / 10;
-      // const volume = (dot(velocity, axis) + dot(axis, attack) * 10) / 100;
+      const volume = dot(velocity, axis) * 100;
       gain.gain.value = volume;
     });
   };

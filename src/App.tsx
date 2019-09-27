@@ -1,36 +1,24 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import createDeviceMotion from './motion/deviceMotion';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import createFiber from './instrument/fiber';
 import Visualizer from './utils/visualizer';
 import GlobalStyle from './globalStyle';
+import motion from './motion/motion';
+import { eulerToArray, cartesianToArray } from './utils/converter';
+import requestPermission from './utils/permission';
+import { vec3 } from 'gl-matrix';
+import styled from 'styled-components';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
   const rec = useMemo<Record<string, number>>(() => ({}), []);
-  // const [twist, setTwist] = useState(0);
-  const [velocity, setVelocity] = useState([0, 0, 0]);
-  // const [jerk, setJerk] = useState([0, 0, 0]);
-  // const [acceleration, setAcceleration] = useState([0, 0, 0]);
+  const [, setCount] = useState(0);
 
   useEffect(() => {
-    const { entry }: VisualizerHandle = vis.current || { entry: () => {} };
-    const cb = (k: string, v: number) => {
-      rec[k] = v;
-    };
-    const dm = createDeviceMotion(
-      {
-        direction: [0.01, 0, 1],
-        elasticity: 100,
-        twistCycle: 10,
-        viscous: 10,
-        weight: 1,
-      },
-      entry,
-      cb,
-    );
-    let orientation: EulerRotation = { alpha: 0, beta: 0, gamma: 0 };
-    type Aa = ReturnType<typeof dm>;
-    let aa: Aa | null = null;
+    const handle = vis.current!;
+    const rerender = () => setCount((c: number) => c + 1);
+    const cb = (k: string, v: number) => (rec[k] = v);
+    const mmmm = motion({ ...handle, cb }, 30);
+    const motionOut = vec3.create();
 
     const fiber = createFiber([
       [[0, 1, 0], 400],
@@ -39,49 +27,46 @@ const App = () => {
       // [[Math.SQRT1_2, Math.SQRT1_2, 0], 500],
     ]);
 
-    window.addEventListener('deviceorientation', ({ alpha, beta, gamma }) => {
-      orientation = { alpha, beta, gamma };
+    window.addEventListener('devicemotion', ({ acceleration, rotationRate, interval: dt }) => {
+      if (!acceleration || !rotationRate) return;
+      const accel = cartesianToArray(acceleration);
+      const rate = eulerToArray(rotationRate);
+      mmmm(motionOut, accel, rate, dt);
+      fiber.update(Array.from(motionOut) as V3);
     });
+
     window.addEventListener(
-      'devicemotion',
-      ({ acceleration, rotationRate, interval, accelerationIncludingGravity }) => {
-        if (!acceleration || !rotationRate || !accelerationIncludingGravity) return;
-        // cb('interval', interval);
-        aa = dm({ acceleration, interval, orientation, rotationRate, accelerationIncludingGravity });
+      'touchend',
+      async () => {
+        try {
+          await requestPermission.deviceMotion();
+          await requestPermission.deviceOrientation();
+          fiber.start();
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.log(e);
+        }
       },
+      { once: true },
     );
 
-    window.addEventListener('touchstart', fiber.start, { once: true });
-
+    let alive = true;
     const update = () => {
-      if (aa) {
-        const { attack, movment, dot, pow } = aa;
-        // setTwist(twist);
-        setVelocity(movment);
-        // setAcceleration(acceleration);
-        // setJerk(jerk);
-        fiber.update({ attack, velocity: movment, dot, pow } as any);
-        attack.forEach((v, i) => cb(`attack:${i}`, v));
-      }
+      if (!alive) return;
+      rerender();
       requestAnimationFrame(update);
     };
     update();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return (
     <>
       <GlobalStyle />
-      <div>
-        <Visualizer ref={vis} />
-        <div>
-          {/* <V entries={[[`twist ${twist}`, twist]]} mag={10} /> */}
-          {rec.interval}
-          <V entries={Object.entries(rec)} mag={1} />
-          <V entries={Object.entries(velocity)} mag={500} />
-          {/* <V entries={Object.entries(acceleration)} mag={50} /> */}
-          {/* <V entries={Object.entries(jerk)} mag={100} /> */}
-        </div>
-      </div>
+      <Visualizer ref={vis} />
+      <V entries={Object.entries(rec)} mag={1} />
     </>
   );
 };
@@ -89,15 +74,26 @@ const App = () => {
 const V = ({ entries, mag }: { entries: [string, number][]; mag: number }) => (
   <div>
     {entries.map(([k, v]) => (
-      <>
-        <div>{k}</div>
-        <div
-          key={k}
-          style={{ width: `${Math.abs(v) * mag}px`, height: '6px', backgroundColor: v < 0 ? '#f99' : '#99f' }}
-        />
-      </>
+      <VItem key={k} v={v} mag={mag}>
+        {k}
+        <div style={{ width: `${Math.abs(v) * mag}px` }} />
+      </VItem>
     ))}
   </div>
 );
+
+interface VProps {
+  v: number;
+  mag: number;
+}
+
+const VItem = styled.div<VProps>`
+  color: #aaa;
+  & > div {
+    display: block;
+    height: 6px;
+    background-color: ${({ v }) => (v < 0 ? '#f99' : '#99f')};
+  }
+`;
 
 export default App;
