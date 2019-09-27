@@ -1,5 +1,15 @@
 import styled from 'styled-components';
-import { ArrowHelper, Vector3, Scene, WebGLRenderer, PerspectiveCamera } from 'three';
+import {
+  ArrowHelper,
+  Vector3,
+  Scene,
+  WebGLRenderer,
+  PerspectiveCamera,
+  PlaneGeometry,
+  MeshBasicMaterial,
+  Mesh,
+  OrthographicCamera,
+} from 'three';
 import React, { useMemo, forwardRef, useEffect, useRef, useImperativeHandle, memo } from 'react';
 
 const ORIGIN = new Vector3(0, 0, 0);
@@ -30,15 +40,32 @@ const Visualizer = memo(
       if (!canvas) return;
       let alive = true;
 
-      canvas.width = canvas.clientWidth;
-      canvas.height = canvas.clientHeight;
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+
+      canvas.width = width;
+      canvas.height = height;
 
       const scene = new Scene();
-      const camera = new PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
+      scene.modelViewMatrix.identity();
+      const camera = new PerspectiveCamera(75, width / height, 0.1, 1000);
       camera.position.set(2, 2, 2);
       camera.lookAt(0, 0, 0);
-      const renderer = new WebGLRenderer({ canvas });
-      renderer.setClearColor(0x666666);
+      const renderer = new WebGLRenderer({ canvas, preserveDrawingBuffer: true });
+      renderer.autoClearColor = false;
+
+      const bgCamera = new OrthographicCamera(0, width, height, 0, 0, 1000);
+      const bgScene = new Scene();
+      const geometry = new PlaneGeometry(width, height, 10, 10);
+      const material = new MeshBasicMaterial({
+        color: 0x333333,
+        transparent: true,
+        opacity: 0.1,
+      });
+      const bg = new Mesh(geometry, material);
+      bg.position.x = width / 2;
+      bg.position.y = height / 2;
+      bgScene.add(bg);
 
       const render = () => {
         Object.entries(INTERNAL.entries).forEach(([key, { values, color }]) => {
@@ -47,15 +74,17 @@ const Visualizer = memo(
             const length = vec.length();
             vec.normalize();
             const helper = new ArrowHelper(vec, ORIGIN, length, color);
+            helper;
             scene.add(helper);
 
             INTERNAL.helpers[key] = [vec, helper];
           }
           const [vec, helper] = INTERNAL.helpers[key];
-          const length = vec.set(...values).length();
+          const length = Math.max(vec.set(...values).length(), 0.0001);
           helper.setLength(length);
           helper.setDirection(vec.normalize());
         });
+        renderer.render(bgScene, bgCamera);
         renderer.render(scene, camera);
 
         if (alive) requestAnimationFrame(render);
