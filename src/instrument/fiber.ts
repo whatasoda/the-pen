@@ -16,22 +16,17 @@ const createFiber = (entries: [V3, number][]) => {
     return { axis, osc, gain, out: gain };
   });
 
-  const update = (velocity: V3) => {
+  const update = (direction: V3, power: number) => {
     nodes.forEach(({ gain, axis }) => {
-      const volume = dot(velocity, axis) * 100;
+      const volume = dot(axis, direction, power) * 100;
       gain.gain.value = volume;
     });
   };
 
-  const tmpA = vec3.create();
-  const tmpB = vec3.create();
-  const dot = (a: V3, b: V3) => {
-    vec3.normalize(tmpA, a);
-    vec3.normalize(tmpB, b);
-    const d = vec3.dot(tmpA, tmpB);
-    const hoge = 0.3;
-    const mag = (Math.max(hoge, d ** 3) - hoge) / (1 - hoge);
-    return mag * (Math.max(vec3.length(a), 0.2) - 0.2) * vec3.length(b);
+  const dot = (axis: V3, direction: V3, power: number) => {
+    const threshold = 0.3;
+    const dot = (Math.max(threshold, vec3.dot(direction, axis) ** 3) - threshold) / (1 - threshold);
+    return dot * Math.max(power, 0.2) - 0.2;
   };
 
   const start = () => {

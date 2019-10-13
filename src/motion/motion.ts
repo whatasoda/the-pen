@@ -6,8 +6,6 @@ type CB = {
 };
 
 const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
-  const last = size - 1;
-
   const rotation = (() => {
     const tmpVec = vec3.create();
     const tmpQuat = quat.create();
@@ -15,12 +13,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     return (out: quat, rateEuler: V3, dt: number) => {
       vec3.scale(tmpVec, rateEuler, dt);
       quat.fromEuler(tmpQuat, tmpVec[0], tmpVec[1], tmpVec[2]);
-      quat.copy(out, rotSeq.get(last));
-      rotSeq.forEach((out) => {
-        quat.mul(out, out, tmpQuat);
-      });
-      rotSeq.push(tmpQuat);
-      return out;
+      return rotSeq.accumulate(out, tmpQuat, quat.mul);
     };
   })();
 
@@ -29,12 +22,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const veloSeq = sequential('vec3', size);
     return (out: vec3, accel: V3, dt: number) => {
       vec3.scale(tmp, accel, dt);
-      vec3.copy(out, veloSeq.get(last));
-      veloSeq.forEach((out) => {
-        vec3.add(out, out, tmp);
-      });
-      veloSeq.push([0, 0, 0]);
-      return out;
+      return veloSeq.accumulate(out, tmp, vec3.add);
     };
   })();
 
@@ -43,11 +31,11 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const axis = vec3.create();
     const velo = vec3.create();
 
-    return (out: vec3, accel: V3, rate: V3, dt: number) => {
+    return (out: vec3, accel: V3, rate: V3, dt: number): number => {
       rotation(rot, rate, dt);
       velocity(velo, accel, dt);
       const angle = quat.getAxisAngle(axis, rot) / Math.PI;
-      if (angle === 1) return; // skip if initial
+      if (angle === 1) return 0; // skip if initial
 
       vec3.scaleAndAdd(velo, velo, axis, -vec3.dot(axis, velo));
       vec3.scale(velo, velo, angle);
@@ -56,8 +44,8 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       entry('velo', 0xff0000, Array.from(velo).map((v) => v * 10) as V3);
       entry('axis', 0x00ff00, Array.from(axis).map((v) => (angle < 0.01 ? 0 : v * 0.4)) as V3);
 
-      vec3.scale(out, axis, vec3.length(velo) * 100);
-      return out;
+      vec3.copy(out, axis);
+      return vec3.length(velo);
     };
   })();
 };

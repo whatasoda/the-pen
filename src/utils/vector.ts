@@ -38,12 +38,13 @@ interface Sequential<T extends keyof VecType> {
   push(item: VecType[T] | number[]): void;
   forEach(cb: (curr: VecType[T], index: number) => void): void;
   reduce<U>(cb: (acc: U, curr: VecType[T], index: number) => U, acc: U): U;
+  accumulate(out: VecType[T], args: VecType[T], cb: (out: VecType[T], a: VecType[T], b: VecType[T]) => void): void;
 }
-
 export const sequential = <T extends keyof VecType>(type: T, size: number): Sequential<T> => {
-  const dimension = dimensionMap[type];
   type V = VecType[T];
+  const dimension = dimensionMap[type];
   const length = size * dimension;
+  const last = size - 1;
   const sqeuence = new Float32Array(length);
   const view = Array.from({ length: size }).map((_, i) => sqeuence.subarray(i * dimension, (i + 1) * dimension) as V);
 
@@ -78,5 +79,12 @@ export const sequential = <T extends keyof VecType>(type: T, size: number): Sequ
     return acc;
   };
 
-  return { push, get, forEach, reduce };
+  const accumulate = (out: V, value: V, cb: (out: V, a: V, b: V) => void): V => {
+    out.set(get(last));
+    forEach((out) => cb(out, out, value));
+    push(value);
+    return out;
+  };
+
+  return { push, get, forEach, reduce, accumulate };
 };
