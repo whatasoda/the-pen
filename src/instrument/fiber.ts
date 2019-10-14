@@ -16,17 +16,21 @@ const createFiber = (entries: [V3, number][]) => {
     return { axis, osc, gain, out: gain };
   });
 
-  const update = (direction: V3, power: number) => {
+  const update = (direction: V3, { power, isScraping, isAttacking }: MotionPayload) => {
     nodes.forEach(({ gain, axis }) => {
-      const volume = dot(axis, direction, power) * 100;
-      gain.gain.value = volume;
+      const volume = dot(axis, direction, power);
+      if (isScraping || isAttacking) {
+        gain.gain.value = volume;
+      } else {
+        gain.gain.value = 0;
+      }
     });
   };
 
   const dot = (axis: V3, direction: V3, power: number) => {
     const threshold = 0.3;
-    const dot = (Math.max(threshold, vec3.dot(direction, axis) ** 3) - threshold) / (1 - threshold);
-    return dot * Math.max(power, 0.2) - 0.2;
+    const dot = (Math.max(threshold, Math.abs(vec3.dot(direction, axis) ** 3)) - threshold) / (1 - threshold);
+    return dot * (Math.max(power, 0.2) - 0.2);
   };
 
   const start = () => {

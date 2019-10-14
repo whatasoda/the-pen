@@ -17,8 +17,8 @@ const App = () => {
     const handle = vis.current!;
     const rerender = () => setCount((c: number) => c + 1);
     const cb = (k: string, v: number) => (rec[k] = v);
-    const mmmm = motion({ ...handle, cb }, 30);
-    const motionOut = vec3.create();
+    const mmmm = motion({ ...handle, cb }, 6);
+    const direction = vec3.create();
 
     const fiber = createFiber([
       [[0, 1, 0], 400],
@@ -31,8 +31,8 @@ const App = () => {
       if (!acceleration || !rotationRate) return;
       const accel = cartesianToArray(acceleration);
       const rate = eulerToArray(rotationRate);
-      mmmm(motionOut, accel, rate, dt);
-      fiber.update(Array.from(motionOut) as V3);
+      const motion = mmmm(direction, accel, rate, dt);
+      fiber.update(Array.from(direction) as V3, motion);
     });
 
     window.addEventListener(
