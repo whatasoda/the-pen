@@ -58,7 +58,7 @@ const Visualizer = memo(
       const bgScene = new Scene();
       const geometry = new PlaneGeometry(width, height, 10, 10);
       const material = new MeshBasicMaterial({
-        color: 0x333333,
+        color: 0,
         transparent: true,
         opacity: 0.1,
       });
