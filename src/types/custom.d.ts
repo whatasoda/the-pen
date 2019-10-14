@@ -12,3 +12,19 @@ type CartesianKey = 'x' | 'y' | 'z';
 type EulerKey = 'alpha' | 'beta' | 'gamma';
 type EulerRotation = Record<EulerKey, number | null>;
 type CartesianCoord = Record<CartesianKey, number | null>;
+
+interface MotionPayload {
+  power: number;
+  isAttacking: boolean;
+  isScraping: boolean;
+}
+
+interface VisualizerHandle {
+  entry(label: string, color: number, values: V3): void;
+}
+interface VisualizerEntry {
+  values: V3;
+  color: number;
+}
+
+interface InstrumentConfig {}

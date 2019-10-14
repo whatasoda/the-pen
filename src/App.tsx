@@ -31,8 +31,8 @@ const App = () => {
       if (!acceleration || !rotationRate) return;
       const accel = cartesianToArray(acceleration);
       const rate = eulerToArray(rotationRate);
-      const motion = mmmm(direction, accel, rate, dt);
-      fiber.update(Array.from(direction) as V3, motion);
+      const payload = mmmm(direction, accel, rate, dt);
+      fiber.update(Array.from(direction) as V3, payload);
     });
 
     window.addEventListener(
