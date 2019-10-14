@@ -8,3 +8,5 @@ export const eulerToArray = ({ alpha, beta, gamma }: EulerRotation): V3 => [alph
  * Adjust coordinate with the euler-order of `eulerToArray`
  */
 export const cartesianToArray = ({ x, y, z }: CartesianCoord): V3 => [z || 0, x || 0, y || 0];
+
+export const zeroPeak = (value: number) => (Math.E ** -Math.abs(value) - 1) ** 3 + 1;
