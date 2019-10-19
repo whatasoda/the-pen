@@ -2,6 +2,7 @@ import { quat, vec3, vec2 } from 'gl-matrix';
 import sequential from '../utils/sequential';
 import sequentialVariance from '../utils/sequentialVariance';
 import { zeroPeak } from '../utils/converter';
+import LeastSquares from '../utils/leastSquares';
 
 type CB = {
   cb: (k: string, v: number) => void;
@@ -11,6 +12,8 @@ interface Activity {
   velo: boolean;
   accel: boolean;
 }
+
+const width = window.innerWidth;
 
 const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
   const rotation = (() => {
@@ -29,7 +32,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     return (out: vec3, accel: V3, dt: number) => {
       vec3.scale(velo, velo, 0.98);
       vec3.scaleAndAdd(velo, velo, accel, dt);
-      return vec3.copy(out, velo);
+      vec3.copy(out, velo);
     };
   })();
 
@@ -40,7 +43,23 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       vec3.scale(tmp, velo, dt);
       seq.accumulate(out, tmp, vec3.add);
       vec3.scale(out, out, 1 / size);
-      return out;
+    };
+  })();
+
+  const axisBuffer = (() => {
+    const seq = sequential('vec3', size);
+    const seq2 = sequential('vec3', size);
+    const prev = vec3.create();
+    const tmp = vec3.create();
+    const tmp2 = vec3.create();
+    prev[0] = 1;
+    return (out: vec3, axis: vec3) => {
+      const sign = vec3.dot(prev, axis) < 0 ? -1 : 1;
+      vec3.scale(tmp, axis, sign);
+      vec3.copy(prev, tmp);
+      seq.accumulate(tmp2, tmp, vec3.add);
+      seq2.accumulate(out, tmp2, vec3.add);
+      vec3.normalize(out, out);
     };
   })();
 
@@ -49,6 +68,8 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const tmp = vec2.create();
     return (accel: V3, velo: vec3): Activity => {
       seq.accumulate(tmp, [vec3.length(accel), vec3.length(velo)], vec2.add);
+      cb('active.acc', tmp[0]);
+      cb('active.vel', tmp[1]);
       return {
         accel: zeroPeak(tmp[0] / size) < 0.75,
         velo: zeroPeak(tmp[1] / size) < 0.9,
@@ -56,26 +77,10 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     };
   })();
 
-  const axisOptimizer = (() => {
-    const lowThreshold = 0.02;
-    const highThreshold = 0.1;
-    const memo = vec3.create();
-    return (out: vec3, axis: vec3, angle: number, active: boolean): boolean => {
-      const hasAxis = Math.round(vec3.length(memo)) === 1;
-      if (!active) {
-        memo.fill(0);
-      } else if ((!hasAxis && angle > lowThreshold) || (hasAxis && angle > highThreshold)) {
-        vec3.copy(memo, axis);
-      }
-      vec3.copy(out, memo);
-      return hasAxis;
-    };
-  })();
-
   const scrapingThreshold = 0.5;
   const attackingThreshold = 1;
   const checkActionType = (() => {
-    const variance = sequentialVariance(size, 10);
+    const variance = sequentialVariance(size, 8);
     const seq = sequential('vec2', size);
     const tmp = vec2.create();
     let isScraping = false;
@@ -92,7 +97,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       seq.accumulate(tmp, [Number(isScraping), Number(isAttacking)], vec2.add);
       const scraping = (tmp[0] / size) * 10;
       const attacking = (tmp[1] / size) * 10;
-      return { scraping, attacking };
+      return { v, scraping, attacking };
     };
   })();
 
@@ -103,36 +108,41 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const mvmt = vec3.create();
     const direction = vec3.create();
     const speedVariance = sequentialVariance(size, 1);
+    const LS = LeastSquares(size);
 
     const initial: MotionPayload = { power: 0, isAttacking: false, isScraping: false };
     return (out: vec3, accel: V3, rate: V3, dt: number): MotionPayload => {
       rotation(rot, rate, dt);
+      const angle = quat.getAxisAngle(axis, rot) / Math.PI;
+      axisBuffer(axis, axis);
+
       velocity(velo, accel, dt * 10);
       movement(mvmt, velo, dt * 10);
-      const angle = quat.getAxisAngle(axis, rot) / Math.PI;
       if (angle === 1) return { ...initial }; // skip if initial
 
       const active = activity(accel, velo);
+      const ls = LS.calculate(mvmt, 0.005);
 
-      const hasAxis = axisOptimizer(axis, axis, angle, active.velo);
-      vec3.scaleAndAdd(mvmt, mvmt, axis, -vec3.dot(axis, mvmt));
-      const power = vec3.length(mvmt) * Number(hasAxis);
+      const power = vec3.length(mvmt);
       const speed = vec3.length(velo);
       vec3.normalize(direction, mvmt);
-      const { attacking, scraping } = checkActionType(power, active);
+      const { v, attacking, scraping } = checkActionType(power, active);
 
       cb('scrapingThreshold', scrapingThreshold * 100);
       cb('power', power * 100);
       cb('attackingThreshold', attackingThreshold * 100);
       cb('speed', speed);
-      cb('varSpeed', speedVariance(speed) * 100);
       cb('active.accel', Number(active.accel) * 100);
       cb('active.velo', Number(active.velo) * 100);
       cb('isAttacking', attacking * 100);
       cb('isScraping', scraping * 100);
-      cb('coef', Number(hasAxis) * 100);
-      entry('velo', 0xff0000, Array.from(direction).map((v) => (v * power) / 10) as V3);
+      cb('varSpeed', speedVariance(speed * Math.SQRT2) * width);
+      cb('ls', ls * width);
+      cb('v', v * width);
+      entry('velo', 0xff0000, Array.from(direction).map((v) => v * power) as V3);
       entry('axis', 0x00ff00, Array.from(axis).map((v) => v) as V3);
+
+      // entry('mvmt', 0xffff00, Array.from(mvmt) as V3);
 
       vec3.copy(out, direction);
       return { power, isAttacking: attacking > 0.5, isScraping: scraping > 0.5 };
