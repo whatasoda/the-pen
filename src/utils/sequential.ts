@@ -26,6 +26,7 @@ interface Sequential<V extends Vec = Vec> {
   forEach(cb: (curr: V, index: number) => void): void;
   map<U>(cb: (curr: V, index: number) => U): U[];
   reduce<U>(cb: (acc: U, curr: V, index: number) => U, acc: U): U;
+  reduceRight<U>(cb: (acc: U, curr: V, index: number) => U, acc: U): U;
   accumulate(out: V, args: number[], cb: (out: V, a: V, b: number[]) => void): void;
   accumulate(out: V, args: V, cb: (out: V, a: V, b: V) => void): void;
 }
@@ -69,10 +70,11 @@ const sequential: {
   };
 
   const reduce = <U>(cb: (acc: U, curr: Vec, index: number) => U, acc: U): U => {
-    pointer.forEach((p, i) => {
-      acc = cb(acc, view[p], i);
-    });
-    return acc;
+    return pointer.reduce((acc, p, i) => cb(acc, view[p], i), acc);
+  };
+
+  const reduceRight = <U>(cb: (acc: U, curr: Vec, index: number) => U, acc: U): U => {
+    return pointer.reduceRight((acc, p, i) => cb(acc, view[p], i), acc);
   };
 
   const accumulate = (out: Vec, value: Vec, cb: (out: Vec, a: Vec, b: Vec) => void): Vec => {
@@ -90,6 +92,7 @@ const sequential: {
     forEach,
     map,
     reduce,
+    reduceRight,
     accumulate: (accumulate as unknown) as Sequential<Vec>['accumulate'],
   };
 };
