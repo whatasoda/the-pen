@@ -1,12 +1,13 @@
 import { vec3, glMatrix } from 'gl-matrix';
 import sequential, { add } from './sequential';
+import { zeroPeak } from './converter';
 
 const FactorKey = ['X', 'Y', 'Z', 'XX', 'YY', 'ZZ', 'XY', 'YZ', 'ZX', 'ONE'] as const;
 
 const LeastSquares = (size: number) => {
   const seq = sequential(FactorKey.length, size);
 
-  const accumulate = (() => {
+  const regressionLine = (() => {
     const UU = vec3.create();
     const UV = vec3.create();
     const acc = new Float32Array(FactorKey.length);
@@ -45,7 +46,26 @@ const LeastSquares = (size: number) => {
     };
   })();
 
-  return { accumulate };
+  const calculate = (() => {
+    const gradient = vec3.create();
+    const intercept = vec3.create();
+    const tmp = vec3.create();
+    return (input: V3 | vec3, coef: number = 1) => {
+      regressionLine(gradient, intercept, input);
+      let prev = 0;
+      const raw = seq.reduceRight((acc, [x, y, z]) => {
+        vec3.sub(tmp, [x, y, z], input);
+        vec3.scaleAndAdd(tmp, tmp, gradient, -vec3.dot(tmp, gradient));
+        const curr = vec3.sqrLen(tmp);
+        const gap = (prev - curr) ** 2;
+        prev = curr;
+        return acc + gap;
+      }, 0);
+      return zeroPeak((coef * raw) / size);
+    };
+  })();
+
+  return { regressionLine, calculate };
 };
 
 const calculateLeastSquares = (u: number, uv: number, v: number, vv: number, one: number): [number | null, number] => {
