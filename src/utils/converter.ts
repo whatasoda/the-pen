@@ -9,4 +9,6 @@ export const eulerToArray = ({ alpha, beta, gamma }: EulerRotation): V3 => [alph
  */
 export const cartesianToArray = ({ x, y, z }: CartesianCoord): V3 => [z || 0, x || 0, y || 0];
 
-export const zeroPeak = (value: number) => (Math.E ** -Math.abs(value) - 1) ** 3 + 1;
+const { SQRT2, abs } = Math;
+// https://www.google.com/search?q=1-(sqrt(2)**-abs(x)-1)**2
+export const zeroPeak = (value: number) => 1 - (SQRT2 ** -abs(value) - 1) ** 2;
