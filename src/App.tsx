@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import createFiber from './instrument/fiber';
+import createFiber from './core/fiber';
 import Visualizer from './utils/visualizer';
 import GlobalStyle from './globalStyle';
-import motion from './motion/motion';
+import motion from './core/motion';
 import { eulerToArray, cartesianToArray } from './utils/converter';
 import requestPermission from './utils/permission';
 import { vec3 } from 'gl-matrix';
