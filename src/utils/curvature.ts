@@ -1,10 +1,10 @@
 import { vec3 } from 'gl-matrix';
-import sequentialVariance from './sequentialVariance';
+import variance from './variance';
 
 const { acos } = Math;
 
 const curvature = (size: number) => {
-  const vari = sequentialVariance(size, 1 / Math.PI);
+  const vari = variance(size, 1 / Math.PI);
   const prev = vec3.create();
   const curr = vec3.create();
 

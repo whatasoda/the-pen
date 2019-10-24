@@ -2,7 +2,7 @@ import sequential from './sequential';
 import { zeroPeak } from './converter';
 
 const tmp = new Float32Array(1);
-const sequentialVariance = (size: number, coef: number) => {
+const variance = (size: number, coef: number) => {
   const seq = sequential('free', size);
   return (input: number) => {
     tmp[0] = input;
@@ -13,4 +13,4 @@ const sequentialVariance = (size: number, coef: number) => {
   };
 };
 
-export default sequentialVariance;
+export default variance;

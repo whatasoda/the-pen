@@ -1,6 +1,6 @@
 import { quat, vec3, vec2 } from 'gl-matrix';
 import sequential, { add } from '../utils/sequential';
-import sequentialVariance from '../utils/sequentialVariance';
+import variance from '../utils/variance';
 import { zeroPeak } from '../utils/converter';
 import LeastSquares from '../utils/leastSquares';
 import curvature from '../utils/curvature';
@@ -93,12 +93,12 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
   })();
 
   const handleVelocity = (() => {
-    const variance = sequentialVariance(size, 1);
+    const vari = variance(size, 1);
     const curv = curvature(size);
     return (velo: vec3, dt: number) => {
       const speed = vec3.length(velo);
       // TODO: ここつめる
-      const s = variance(speed * Math.SQRT2);
+      const s = vari(speed * Math.SQRT2);
       const c = curv(velo, dt);
 
       return [s, c];
@@ -106,7 +106,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
   })();
 
   const handleMovement = (() => {
-    const variance = sequentialVariance(size, 8);
+    const vari = variance(size, 8);
     const { calculate: wave } = LeastSquares(size);
     let prev = 0;
     return (out: vec3, mvmt: vec3) => {
@@ -114,7 +114,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       vec3.scale(out, mvmt, 1 / power);
 
       const diff = (Math.max(0, power - prev) * 10) ** 2;
-      const p = variance(diff);
+      const p = vari(diff);
       const w = wave(mvmt, 0.005);
       prev = power;
       return [p, w];
