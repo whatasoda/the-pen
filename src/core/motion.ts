@@ -140,23 +140,10 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const mvmt = vec3.create();
     const direction = vec3.create();
 
-    // const initial: MotionPayload = {
-    //   angle: 0,
-    //   power: 0,
-    //   attack: 0,
-    //   liner: 0,
-    //   curve: 0,
-    // };
-    // let isFirst = true;
     return (out: MotionOutput, accel: V3, rate: V3, dt: number): MotionPayload => {
       rotation(rot, rate, dt);
       velocity(velo, accel, dt * 10);
       movement(mvmt, velo, dt * 10);
-
-      // if (isFirst) {
-      //   isFirst = false;
-      //   return { ...initial };
-      // }
 
       const [angle, a] = handleRotation(axis, rot, dt);
       const [m, mag] = handleAcceleration(accel);
