@@ -50,22 +50,40 @@ const LeastSquares = (size: number) => {
     const gradient = vec3.create();
     const intercept = vec3.create();
     const tmp = vec3.create();
-    return (input: V3 | vec3, coef: number = 1) => {
+    return (input: V3 | vec3, [squareCoef, peakCoef]: [number, number]) => {
       regressionLine(gradient, intercept, input);
       let prev = 0;
       const raw = seq.reduceRight((acc, [x, y, z]) => {
         vec3.sub(tmp, [x, y, z], input);
         vec3.scaleAndAdd(tmp, tmp, gradient, -vec3.dot(tmp, gradient));
         const curr = vec3.sqrLen(tmp);
-        const gap = (prev - curr) ** 2;
+        const gap = (squareCoef * (prev - curr)) ** 2;
         prev = curr;
         return acc + gap;
       }, 0);
-      return zeroPeak((coef * raw) / size);
+      return zeroPeak((peakCoef * raw) / size);
     };
   })();
 
-  return { regressionLine, calculate };
+  const circle = (() => {
+    const gradient = vec3.create();
+    const intercept = vec3.create();
+    const tmp = vec3.create();
+    const acc = vec3.create();
+    return (input: V3 | vec3, coef: number) => {
+      regressionLine(gradient, intercept, input);
+
+      vec3.set(acc, 0, 0, 0);
+      seq.forEach(([x, y, z]) => {
+        vec3.sub(tmp, [x, y, z], input);
+        vec3.scaleAndAdd(tmp, tmp, gradient, -vec3.dot(tmp, gradient));
+        vec3.add(acc, acc, tmp);
+      });
+      return zeroPeak(((coef * vec3.length(acc)) / size) ** 2);
+    };
+  })();
+
+  return { regressionLine, calculate, circle };
 };
 
 const calculateLeastSquares = (u: number, uv: number, v: number, vv: number, one: number): [number | null, number] => {
