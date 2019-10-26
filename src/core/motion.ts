@@ -1,18 +1,13 @@
-import { quat, vec3, vec2 } from 'gl-matrix';
-import sequential, { add } from '../utils/sequential';
+import { quat, vec3 } from 'gl-matrix';
+import sequential from '../utils/sequential';
 import variance from '../utils/variance';
-import { zeroPeak } from '../utils/converter';
-import LeastSquares from '../utils/leastSquares';
+import { zeroPeak, sqrPositiveSubtract } from '../utils/converter';
 import curvature from '../utils/curvature';
+import bulge from '../utils/bulge';
 
 type CB = {
   cb: (k: string, v: number) => void;
 };
-
-interface Activity {
-  velo: boolean;
-  accel: boolean;
-}
 
 const width = window.innerWidth;
 
@@ -48,90 +43,93 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
   })();
 
   const handleRotation = (() => {
-    const axis = vec3.create();
-    const seq = {
-      angle: sequential('free', size),
-      axis: sequential('vec3', size),
-    };
-
-    const RATE = new Float32Array(1);
     const thershold = 0.75;
+    const cos30 = Math.cos((45 / 180) * Math.PI);
+    const axis = vec3.create();
+    const seq = sequential('vec3', size * 3);
+    const vari = variance(size, 1);
 
-    const prevAxisInput = vec3.create();
-    vec3.set(prevAxisInput, 1, 1, 1);
+    const prevAxisInput = vec3.fromValues(1, 1, 1);
     const AXIS = vec3.create();
 
-    const cos30 = Math.cos((30 / 180) * Math.PI);
     let mag = 1;
+    let prev = 0;
 
     return (out: vec3, rot: quat, dt: number) => {
       const rawAngle = quat.getAxisAngle(axis, rot) / Math.PI;
-      const angle = rawAngle / dt;
-      seq.angle.accumulate(RATE, [angle], add);
+      const angle = rawAngle / dt / size;
 
-      const peak = zeroPeak(RATE[0] * 0.5);
+      const forDiff = angle ** Math.E;
+      const diff = sqrPositiveSubtract(forDiff, prev);
+      const a = vari(diff);
+      prev = forDiff;
+
+      const peak = zeroPeak(angle * Math.E);
       if (peak < thershold) {
         mag = 1;
-        const diff = vec3.dot(prevAxisInput, axis);
+        const cos = vec3.dot(AXIS, axis);
         const coef = angle ** 2;
-        cb('fafsafsa', Math.abs(diff) * width);
-        if (Math.abs(diff) > cos30) {
-          vec3.scale(AXIS, prevAxisInput, coef);
+        if (Math.abs(cos) > cos30) {
+          vec3.scale(axis, prevAxisInput, coef);
         } else {
-          vec3.scale(AXIS, axis, diff < 0 ? -coef : coef);
+          vec3.scale(axis, axis, cos < 0 ? -coef : coef);
           vec3.copy(prevAxisInput, axis);
         }
       } else {
         mag *= 0.9;
-        vec3.scale(AXIS, prevAxisInput, mag);
+        vec3.scale(axis, prevAxisInput, mag);
       }
 
-      seq.axis.accumulate(out, AXIS, vec3.add);
-      vec3.normalize(out, out);
-      return angle;
+      seq.accumulate(AXIS, axis, vec3.add);
+      vec3.normalize(AXIS, AXIS);
+      vec3.copy(out, AXIS);
+      return [angle, a];
+    };
+  })();
+
+  const handleAcceleration = (() => {
+    const vari = variance(size, 1);
+    return (accel: vec3 | V3) => {
+      const mag = vec3.length(accel);
+      const m = vari(mag) ** Math.SQRT1_2;
+      return [m, mag];
     };
   })();
 
   const handleVelocity = (() => {
-    const vari = variance(size, 1);
+    const speedActivityTheshold = 0.85;
     const curv = curvature(size);
     return (velo: vec3, dt: number) => {
       const speed = vec3.length(velo);
-      // TODO: ここつめる
-      const s = vari(speed * Math.SQRT2);
-      const c = curv(velo, dt);
+      const isActive = zeroPeak(speed / 10) < speedActivityTheshold;
 
-      return [s, c];
+      const cRaw = curv(velo, dt);
+      const c = isActive ? cRaw : 1;
+
+      return [c, Number(isActive), speed];
     };
   })();
 
   const handleMovement = (() => {
-    const vari = variance(size, 8);
-    const { calculate: wave } = LeastSquares(size);
-    let prev = 0;
+    const variHigh = variance(size, 6);
+    const variLow = variance(size, 0.1);
+    const bul = bulge(size);
+    let prevHigh = 0;
+    let prevLow = 0;
     return (out: vec3, mvmt: vec3) => {
       const power = vec3.length(mvmt);
       vec3.scale(out, mvmt, 1 / power);
 
-      const diff = (Math.max(0, power - prev) * 10) ** 2;
-      const p = vari(diff);
-      const w = wave(mvmt, 0.005);
-      prev = power;
-      return [p, w];
-    };
-  })();
-
-  const activity = (() => {
-    const seq = sequential('vec2', size);
-    const tmp = vec2.create();
-    return (accel: V3, velo: vec3): Activity => {
-      seq.accumulate(tmp, [vec3.length(accel), vec3.length(velo)], vec2.add);
-      cb('active.acc', tmp[0]);
-      cb('active.vel', tmp[1]);
-      return {
-        accel: zeroPeak(tmp[0] / size) < 0.75,
-        velo: zeroPeak(tmp[1] / size) < 0.9,
-      };
+      const currHigh = power;
+      const currLow = power ** (2 * Math.E);
+      const diffHigh = sqrPositiveSubtract(currHigh, prevHigh, 0);
+      const diffLow = sqrPositiveSubtract(currLow, prevLow, 16);
+      prevHigh = currHigh;
+      prevLow = currLow;
+      const ph = variHigh(diffHigh);
+      const pl = variLow(diffLow);
+      const b = bul(mvmt, 0.2);
+      return [ph, pl, b, power];
     };
   })();
 
@@ -154,23 +152,30 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
         return { ...initial };
       }
 
-      const active = activity(accel, velo);
-      const angle = handleRotation(axis, rot, dt);
-      const [s, c] = handleVelocity(velo, dt);
-      const [p, w] = handleMovement(direction, mvmt);
+      const [angle, a] = handleRotation(axis, rot, dt);
+      const [m, mag] = handleAcceleration(accel);
+      const [c, s, speed] = handleVelocity(velo, dt);
+      const [ph, pl, b, power] = handleMovement(direction, mvmt);
 
-      const power = vec3.length(mvmt);
-      const speed = vec3.length(velo);
+      const attack = 2 * (Math.max(1 - a * ph, 0.5) - 0.5);
+      const scrape = a * m * s * 2 * (Math.max(c, 0.5) - 0.5) * (1 - attack);
+      const scrapeLiner = b > 0.75 ? scrape * (1 - pl) : 0;
+      const scrapeCurve = b < 0.6 ? scrape * (1 - b) : 0;
 
-      cb('s', s * width);
-      cb('c', c * width);
-      cb('p', p * width);
-      cb('w', w * width);
-      cb('angle', angle * 30);
-      cb('power', power * 100);
+      cb('angle', angle * 20);
+      cb('mag', mag * 10);
       cb('speed', speed);
-      cb('active.accel', Number(active.accel) * 100);
-      cb('active.velo', Number(active.velo) * 100);
+      cb('power', power * 30);
+      cb('a', (1 - a) * width);
+      cb('ph', (1 - ph) * width);
+      cb('pl', (1 - pl) * width);
+      cb('b', (1 - b) * width);
+      cb('m', m * width);
+      cb('c', c * width);
+      cb('scrape', scrape * width);
+      cb('attack', attack * width);
+      cb('scrapeLiner', scrapeLiner * width);
+      cb('scrapeCurve', scrapeCurve * width);
       entry('mvmt', 0xff0000, Array.from(mvmt) as V3);
       entry('axis', 0x00ff00, Array.from(axis) as V3);
 
