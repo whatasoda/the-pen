@@ -16,10 +16,10 @@ const createFiber = (entries: [V3, number][]) => {
     return { axis, osc, gain, out: gain };
   });
 
-  const update = (direction: V3, { power, isScraping, isAttacking }: MotionPayload) => {
+  const update = (direction: V3, { power, attack, curve, liner }: MotionPayload) => {
     nodes.forEach(({ gain, axis }) => {
       const volume = dot(axis, direction, power);
-      if (isScraping || isAttacking) {
+      if (attack > 0.8 || curve > 0.8 || liner > 0.8) {
         gain.gain.value = volume;
       } else {
         gain.gain.value = 0;

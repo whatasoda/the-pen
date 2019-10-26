@@ -140,17 +140,23 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const mvmt = vec3.create();
     const direction = vec3.create();
 
-    const initial: MotionPayload = { power: 0, isAttacking: false, isScraping: false };
-    let isFirst = true;
-    return (out: vec3, accel: V3, rate: V3, dt: number): MotionPayload => {
+    // const initial: MotionPayload = {
+    //   angle: 0,
+    //   power: 0,
+    //   attack: 0,
+    //   liner: 0,
+    //   curve: 0,
+    // };
+    // let isFirst = true;
+    return (out: MotionOutput, accel: V3, rate: V3, dt: number): MotionPayload => {
       rotation(rot, rate, dt);
       velocity(velo, accel, dt * 10);
       movement(mvmt, velo, dt * 10);
 
-      if (isFirst) {
-        isFirst = false;
-        return { ...initial };
-      }
+      // if (isFirst) {
+      //   isFirst = false;
+      //   return { ...initial };
+      // }
 
       const [angle, a] = handleRotation(axis, rot, dt);
       const [m, mag] = handleAcceleration(accel);
@@ -158,9 +164,9 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       const [ph, pl, b, power] = handleMovement(direction, mvmt);
 
       const attack = 2 * (Math.max(1 - a * ph, 0.5) - 0.5);
-      const scrape = a * m * s * 2 * (Math.max(c, 0.5) - 0.5) * (1 - attack);
-      const scrapeLiner = b > 0.75 ? scrape * (1 - pl) : 0;
-      const scrapeCurve = b < 0.6 ? scrape * (1 - b) : 0;
+      const scrapeBase = a * m * s * 2 * (Math.max(c, 0.5) - 0.5) * (1 - attack);
+      const liner = b > 0.75 ? scrapeBase * (1 - pl) : 0;
+      const curve = b < 0.75 ? scrapeBase * (1 - b) : 0;
 
       cb('angle', angle * 20);
       cb('mag', mag * 10);
@@ -172,15 +178,16 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       cb('b', (1 - b) * width);
       cb('m', m * width);
       cb('c', c * width);
-      cb('scrape', scrape * width);
+      cb('scrapeBase', scrapeBase * width);
       cb('attack', attack * width);
-      cb('scrapeLiner', scrapeLiner * width);
-      cb('scrapeCurve', scrapeCurve * width);
+      cb('liner', liner * width);
+      cb('curve', curve * width);
       entry('mvmt', 0xff0000, Array.from(mvmt) as V3);
       entry('axis', 0x00ff00, Array.from(axis) as V3);
 
-      vec3.copy(out, direction);
-      return { power, isAttacking: false, isScraping: false };
+      vec3.copy(out.direction, direction);
+      vec3.copy(out.axis, axis);
+      return { angle, power, attack, liner, curve };
     };
   })();
 };
