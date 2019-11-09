@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import createFiber from './core/fiber';
+import useFiber from './core/fiber';
 import Visualizer from './utils/visualizer';
 import GlobalStyle from './globalStyle';
 import motion from './core/motion';
@@ -7,60 +7,48 @@ import { eulerToArray, cartesianToArray } from './utils/converter';
 import requestPermission from './utils/permission';
 import { vec3 } from 'gl-matrix';
 import styled from 'styled-components';
+import useAudioRoot from './core/audio';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
   const rec = useMemo<Record<string, number>>(() => ({}), []);
+  const { registerNode, start } = useAudioRoot(async () => {
+    try {
+      await requestPermission.deviceMotion();
+      await requestPermission.deviceOrientation();
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.log(e);
+    }
+  });
+  const fiber = useFiber(registerNode);
   const [, setCount] = useState(0);
 
   useEffect(() => {
     const handle = vis.current!;
     const rerender = () => setCount((c: number) => c + 1);
     const cb = (k: string, v: number) => (rec[k] = v);
-    const mmmm = motion({ ...handle, cb }, 6);
+    const m = motion({ ...handle, cb }, 6);
     const direction = vec3.create();
     const axis = vec3.create();
-
-    const fiber = createFiber([
-      [[0, 1, 0], 400],
-      [[1, 0, 0], 440],
-      [[0, 0, 1], 540],
-      // [[Math.SQRT1_2, Math.SQRT1_2, 0], 500],
-    ]);
+    fiber.add('attack', 261.626, [0, 1, 0]);
+    fiber.add('attack', 329.628, [0, 1, 0]);
+    fiber.add('attack', 391.995, [0, 1, 0]);
+    fiber.add('curve', 391.995, [1, 0, 0]);
+    fiber.add('curve', 493.883, [1, 0, 0]);
+    fiber.add('curve', 587.33, [1, 0, 0]);
+    fiber.add('liner', 587.33, [0, 0, 1]);
+    fiber.add('liner', 698.456, [0, 0, 1]);
+    fiber.add('liner', 880, [0, 0, 1]);
 
     window.addEventListener('devicemotion', ({ acceleration, rotationRate, interval: dt }) => {
       if (!acceleration || !rotationRate) return;
       const accel = cartesianToArray(acceleration);
       const rate = eulerToArray(rotationRate);
-      const payload = mmmm({ direction, axis }, accel, rate, dt);
+      const payload = m({ direction, axis }, accel, rate, dt);
       fiber.update(Array.from(axis) as V3, payload);
-    });
-
-    window.addEventListener(
-      'touchend',
-      async () => {
-        try {
-          await requestPermission.deviceMotion();
-          await requestPermission.deviceOrientation();
-          fiber.start();
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.log(e);
-        }
-      },
-      { once: true },
-    );
-
-    let alive = true;
-    const update = () => {
-      if (!alive) return;
       rerender();
-      requestAnimationFrame(update);
-    };
-    update();
-    return () => {
-      alive = false;
-    };
+    });
   }, []);
 
   return (
@@ -68,6 +56,7 @@ const App = () => {
       <GlobalStyle />
       <Visualizer ref={vis} />
       <V entries={Object.entries(rec)} mag={1} />
+      {start && <StartButton onClick={start} />}
     </>
   );
 };
@@ -82,6 +71,21 @@ const V = ({ entries, mag }: { entries: [string, number][]; mag: number }) => (
     ))}
   </div>
 );
+
+const StartButton = styled.a`
+  z-index: 100;
+  display: block;
+  position: fixed;
+  width: 100px;
+  height: 100px;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  margin: auto;
+  background-color: #aaa;
+  border-radius: 50%;
+`;
 
 interface VProps {
   v: number;

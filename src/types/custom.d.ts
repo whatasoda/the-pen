@@ -38,4 +38,16 @@ declare global {
   }
 
   interface InstrumentConfig {}
+
+  interface AudioRoot {
+    status: 'LOADING' | 'RESTART_REQUIRED' | 'RUNNING';
+    /**
+     * This function have to be called in user gesture such as `click` and `touchstart`.
+     */
+    start: (() => void) | null;
+    registerNode: <T>(factory: (ctx: AudioContext) => readonly [T, AudioScheduledSourceNode, AudioNode]) => Promise<T>;
+  }
+  interface AudioRootObject extends Omit<AudioRoot, 'status'> {
+    start: () => void;
+  }
 }
