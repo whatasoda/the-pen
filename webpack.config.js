@@ -1,19 +1,20 @@
 const createStyledComponentsTransformer = require('typescript-plugin-styled-components').default;
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const TerserJSPlugin = require('terser-webpack-plugin');
 const ip = require('ip');
 const path = require('path');
 const webpack = require('webpack');
+const merge = require('webpack-merge');
 
 const distRoot = path.resolve(__dirname, 'dist');
 const srcRoot = path.resolve(__dirname, 'src');
 
 const styledComponentsTransformer = createStyledComponentsTransformer();
 
-module.exports = () => ({
+module.exports = merge({
   entry: [path.resolve(srcRoot, 'index.ts')],
   output: {
     path: distRoot,
+    chunkFilename: '[name].[hash].bundle.js',
   },
   devtool: 'source-map',
   devServer: {
@@ -24,7 +25,9 @@ module.exports = () => ({
     https: true,
   },
   optimization: {
-    minimizer: [new TerserJSPlugin({})],
+    splitChunks: {
+      chunks: 'all',
+    },
   },
   resolve: {
     extensions: ['.js', '.ts', '.tsx'],
@@ -41,10 +44,15 @@ module.exports = () => ({
     rules: [
       {
         test: /\.tsx?$/,
-        loader: 'ts-loader',
-        options: {
-          getCustomTransformers: () => ({ before: [styledComponentsTransformer] }),
-        },
+        include: [path.resolve(__dirname, './src')],
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              getCustomTransformers: () => ({ before: [styledComponentsTransformer] }),
+            },
+          },
+        ],
       },
     ],
   },

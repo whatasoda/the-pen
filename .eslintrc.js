@@ -1,7 +1,7 @@
 module.exports = {
   extends: ['@whatasoda'],
   parserOptions: {
-    project: './tsconfig.json',
-    tsconfigRootDir: '.'
+    project: './tsconfig.eslint.json',
+    tsconfigRootDir: '.',
   }
 }
