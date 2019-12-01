@@ -11,6 +11,7 @@ import {
   OrthographicCamera,
 } from 'three';
 import React, { useMemo, forwardRef, useEffect, useRef, useImperativeHandle, memo } from 'react';
+import { vec3 } from 'gl-matrix';
 
 const ORIGIN = new Vector3(0, 0, 0);
 
@@ -27,7 +28,7 @@ const Visualizer = memo(
     useImperativeHandle(
       ref,
       () => {
-        const entry = (label: string, color: number, values: V3) => {
+        const entry = (label: string, color: number, values: vec3) => {
           INTERNAL.entries[label] = { color, values };
         };
         return { entry };
@@ -80,7 +81,7 @@ const Visualizer = memo(
             INTERNAL.helpers[key] = [vec, helper];
           }
           const [vec, helper] = INTERNAL.helpers[key];
-          const length = Math.max(vec.set(...values).length(), 0.0001);
+          const length = Math.max(vec.set(values[0], values[1], values[2]).length(), 0.0001);
           helper.setLength(length);
           helper.setDirection(vec.normalize());
         });

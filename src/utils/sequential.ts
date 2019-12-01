@@ -1,24 +1,8 @@
-import { vec2, vec3, vec4, quat } from 'gl-matrix';
+import { TupleLength } from 'typed-tuple-type';
 
 type Vec = Float32Array;
 
-type VectorMap = {
-  free: Vec;
-  vec2: vec2;
-  vec3: vec3;
-  vec4: vec4;
-  quat: quat;
-};
-const dimensions: Record<keyof VectorMap, number> = {
-  /** default value of 'free' */
-  free: 1,
-  vec2: 2,
-  vec3: 3,
-  vec4: 4,
-  quat: 4,
-};
-
-interface Sequential<V extends Vec = Vec> {
+interface Sequential<V extends Float32Tuple<TupleLength>> {
   readonly size: number;
   readonly dimension: number;
   get(i: number): V;
@@ -31,15 +15,14 @@ interface Sequential<V extends Vec = Vec> {
   accumulate(out: V, args: V, cb: (out: V, a: V, b: V) => void): void;
 }
 
-const sequential: {
-  (type: number, size: number): Sequential<Vec>;
-  <T extends keyof VectorMap>(type: T, size: number): Sequential<VectorMap[T]>;
-} = (type: keyof VectorMap | number, size: number): Sequential<Vec> => {
-  const dimension = typeof type === 'number' ? type : dimensions[type];
+const sequential = <T extends TupleLength>(dimension: T, size: number): Sequential<Float32Tuple<T>> => {
+  type Vec = Float32Tuple<T>;
   const length = size * dimension;
   const last = size - 1;
   const sqeuence = new Float32Array(length);
-  const view = Array.from({ length: size }).map((_, i) => sqeuence.subarray(i * dimension, (i + 1) * dimension) as Vec);
+  const view = Array.from({ length: size }).map(
+    (_, i) => (sqeuence.subarray(i * dimension, (i + 1) * dimension) as unknown) as Vec,
+  );
 
   const base = size - 1;
   const pointer = Array.from({ length: size }).map((_, i) => i);

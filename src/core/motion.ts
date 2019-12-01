@@ -15,7 +15,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
   const rotation = (() => {
     const tmpVec = vec3.create();
     const tmpQuat = quat.create();
-    const seq = sequential('quat', size);
+    const seq = sequential(4, size);
     return (out: quat, rateEuler: V3, dt: number) => {
       vec3.scale(tmpVec, rateEuler, dt);
       quat.fromEuler(tmpQuat, tmpVec[0], tmpVec[1], tmpVec[2]);
@@ -34,7 +34,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
 
   const movement = (() => {
     const tmp = vec3.create();
-    const seq = sequential('vec3', size);
+    const seq = sequential(3, size);
     return (out: vec3, velo: vec3, dt: number) => {
       vec3.scale(tmp, velo, dt);
       seq.accumulate(out, tmp, vec3.add);
@@ -46,7 +46,7 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
     const thershold = 0.75;
     const cos30 = Math.cos((45 / 180) * Math.PI);
     const axis = vec3.create();
-    const seq = sequential('vec3', size * 3);
+    const seq = sequential(3, size * 3);
     const vari = variance(size, 1);
 
     const prevAxisInput = vec3.fromValues(1, 1, 1);
@@ -169,8 +169,8 @@ const motion = ({ entry, cb }: VisualizerHandle & CB, size: number) => {
       cb('attack', attack * width);
       cb('liner', liner * width);
       cb('curve', curve * width);
-      entry('mvmt', 0xff0000, Array.from(mvmt) as V3);
-      entry('axis', 0x00ff00, Array.from(axis) as V3);
+      entry('mvmt', 0xff0000, mvmt);
+      entry('axis', 0x00ff00, mvmt);
 
       vec3.copy(out.direction, direction);
       vec3.copy(out.axis, axis);

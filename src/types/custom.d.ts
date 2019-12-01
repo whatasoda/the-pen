@@ -30,10 +30,10 @@ declare global {
   }
 
   interface VisualizerHandle {
-    entry(label: string, color: number, values: V3): void;
+    entry(label: string, color: number, values: vec3): void;
   }
   interface VisualizerEntry {
-    values: V3;
+    values: vec3;
     color: number;
   }
 

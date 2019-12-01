@@ -3,7 +3,7 @@ import { zeroPeak } from './converter';
 
 const tmp = new Float32Array(1);
 const variance = (size: number, coef: number) => {
-  const seq = sequential('free', size);
+  const seq = sequential(1, size);
   return (input: number) => {
     tmp[0] = input;
     seq.push(tmp);
