@@ -1,62 +1,85 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import useFiber from './core/fiber';
 import Visualizer from './utils/visualizer';
 import GlobalStyle from './globalStyle';
-import motion from './core/motion';
-import { eulerToArray, cartesianToArray } from './utils/converter';
-import requestPermission from './utils/permission';
 import { vec3 } from 'gl-matrix';
 import styled from 'styled-components';
-import useAudioRoot from './core/audio';
+import motion2 from './core/motion';
+import useAudio from './core/useAudio';
+import sample from '../sample.m4a';
+import usePermissionRequest from './utils/permission';
+import useSensorEffect from './core/useSensorEffect';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
-  const rec = useMemo<Record<string, number>>(() => ({}), []);
-  const { registerNode, start } = useAudioRoot(async () => {
-    try {
-      await requestPermission.deviceMotion();
-      await requestPermission.deviceOrientation();
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.log(e);
-    }
-  });
-  const fiber = useFiber(registerNode);
+  const { record, showScalar } = useMemo(() => {
+    const record: Record<string, number> = {};
+    const showScalar = (k: string, v: number) => (record[k] = v);
+
+    return { showScalar, record };
+  }, []);
+  const requestPermission = usePermissionRequest();
   const [, setCount] = useState(0);
+  const ctx = useAudio();
+  const [tree, setTree] = useState<ReturnType<typeof motion2> | null>(null);
+
+  const resetOffset = useSensorEffect(() => {
+    const tmp = vec3.create();
+    const tmp2 = vec3.fromValues(10, 0, 0);
+    const rerender = () => setCount((c: number) => c + 1);
+    return (sensor) => {
+      const showVector = vis.current?.entry;
+
+      const tree = motion2(({ acceleration, dt, rotation, orientation }) => {
+        vec3.copy(acceleration.value, sensor.acceleration);
+        vec3.copy(rotation.value, sensor.rotationRate);
+        vec3.copy(orientation.value, sensor.orientation);
+        dt.value[0] = sensor.dt;
+      });
+
+      setTree(tree);
+      showScalar('radius', tree.radius.value.value[0] * 100);
+      showScalar('omega', tree.radius.value.value[1] * 10);
+      showScalar('theta', tree.radius.value.value[2] * 10);
+      showScalar('circle', tree.circle.value.value[0] * 100);
+      showScalar('hoge', tree.hoge.value.value[0] * 1000);
+      showVector?.('ho', 0x00ff00, tree.v.value.value);
+      showVector?.('hsokao', 0x0000ff, vec3.scale(tmp, tree.movement.value.value, 5));
+      showVector?.('gioqkg', 0xaaaa00, tmp2);
+      (window as any).aaaa = tmp;
+
+      rerender();
+    };
+  }, []);
 
   useEffect(() => {
-    const handle = vis.current!;
-    const rerender = () => setCount((c: number) => c + 1);
-    const cb = (k: string, v: number) => (rec[k] = v);
-    const m = motion({ ...handle, cb }, 6);
-    const direction = vec3.create();
-    const axis = vec3.create();
-    fiber.add('attack', 261.626, [0, 1, 0]);
-    fiber.add('attack', 329.628, [0, 1, 0]);
-    fiber.add('attack', 391.995, [0, 1, 0]);
-    fiber.add('curve', 391.995, [1, 0, 0]);
-    fiber.add('curve', 493.883, [1, 0, 0]);
-    fiber.add('curve', 587.33, [1, 0, 0]);
-    fiber.add('liner', 587.33, [0, 0, 1]);
-    fiber.add('liner', 698.456, [0, 0, 1]);
-    fiber.add('liner', 880, [0, 0, 1]);
+    if (!ctx || !tree) return;
 
-    window.addEventListener('devicemotion', ({ acceleration, rotationRate, interval: dt }) => {
-      if (!acceleration || !rotationRate) return;
-      const accel = cartesianToArray(acceleration);
-      const rate = eulerToArray(rotationRate);
-      const payload = m({ direction, axis }, accel, rate, dt);
-      fiber.update(Array.from(axis) as V3, payload);
-      rerender();
-    });
-  }, []);
+    window.addEventListener('touchstart', resetOffset);
+    (async () => {
+      const res = await fetch(sample);
+      // eslint-disable-next-line no-async-promise-executor
+      const buffer = await new Promise<AudioBuffer>(async (resolve) => {
+        ctx.decodeAudioData(await res.arrayBuffer(), resolve);
+      });
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(ctx.destination);
+      // source.start();
+      const update = () => {
+        source.playbackRate.value = 10 ** tree.ar.value.value[0];
+        requestAnimationFrame(update);
+      };
+      update();
+    })();
+  }, [ctx, tree]);
 
   return (
     <>
       <GlobalStyle />
       <Visualizer ref={vis} />
-      <V entries={Object.entries(rec)} mag={1} />
-      {start && <StartButton onClick={start} />}
+      <V entries={Object.entries(record)} mag={1} />
+      {requestPermission && <StartButton onClick={requestPermission} />}
     </>
   );
 };
@@ -76,15 +99,12 @@ const StartButton = styled.a`
   z-index: 100;
   display: block;
   position: fixed;
-  width: 100px;
-  height: 100px;
   top: 0;
   left: 0;
   bottom: 0;
   right: 0;
   margin: auto;
-  background-color: #aaa;
-  border-radius: 50%;
+  background-color: #aaa2;
 `;
 
 interface VProps {
