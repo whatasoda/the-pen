@@ -7,7 +7,6 @@ interface Props {
 
 const AxisRotation = vn.defineNode(
   {
-    nodeType: 'AxisRotation',
     inputs: {
       rotationQuat: 'f32-4-moment',
     },

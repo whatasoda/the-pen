@@ -8,7 +8,6 @@ interface Props {
 
 const Rotation = vn.defineNode(
   {
-    nodeType: 'Rotation',
     inputs: {
       rateEuler: 'f32-3-moment',
       dt: 'f32-1-moment',

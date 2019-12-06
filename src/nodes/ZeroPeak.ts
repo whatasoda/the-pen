@@ -7,7 +7,6 @@ interface Props {
 const { SQRT2, abs } = Math;
 const ZeroPeak = vn.defineNode(
   {
-    nodeType: 'ZeroPeak',
     inputs: { input: 'f32-1-moment' },
     output: 'f32-1-moment',
   },

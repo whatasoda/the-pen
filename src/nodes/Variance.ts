@@ -7,7 +7,6 @@ interface Props {
 
 const Variance = vn.defineNode(
   {
-    nodeType: 'Variance',
     inputs: {
       input: 'f32-1-moment',
     },

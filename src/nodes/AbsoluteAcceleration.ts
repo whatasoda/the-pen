@@ -4,7 +4,6 @@ import { vec3 } from 'gl-matrix';
 
 const AbsoluteAcceleration = vn.defineNode(
   {
-    nodeType: 'GlobalAcceleration',
     inputs: {
       acceleration: 'f32-3-moment',
       orientation: 'f32-3-moment',

@@ -3,7 +3,6 @@ import { vec3 } from 'gl-matrix';
 
 const Length = vn.defineNode(
   {
-    nodeType: 'Length',
     inputs: {
       input: 'f32-3-moment',
     },

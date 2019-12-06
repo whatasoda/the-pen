@@ -7,7 +7,6 @@ interface Props {
 
 const Velocity = vn.defineNode(
   {
-    nodeType: 'Velocity',
     inputs: {
       acceleration: 'f32-3-moment',
       dt: 'f32-1-moment',
