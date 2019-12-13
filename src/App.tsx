@@ -8,6 +8,7 @@ import useAudio from './core/useAudio';
 import sample from '../sample.m4a';
 import usePermissionRequest from './utils/permission';
 import useSensorEffect from './core/useSensorEffect';
+// import { clamp } from './utils/math';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
@@ -24,8 +25,9 @@ const App = () => {
 
   const resetOffset = useSensorEffect(() => {
     const tmp = vec3.create();
-    const tmp2 = vec3.fromValues(10, 0, 0);
+    const tmp2 = vec3.fromValues(0, 10, 0);
     const rerender = () => setCount((c: number) => c + 1);
+    const vw = window.innerWidth;
     return (sensor) => {
       const showVector = vis.current?.entry;
 
@@ -37,13 +39,15 @@ const App = () => {
       });
 
       setTree(tree);
-      showScalar('radius', tree.radius.value.value[0] * 100);
-      showScalar('omega', tree.radius.value.value[1] * 10);
-      showScalar('theta', tree.radius.value.value[2] * 10);
-      showScalar('circle', tree.circle.value.value[0] * 100);
-      showScalar('hoge', tree.hoge.value.value[0] * 1000);
-      showVector?.('ho', 0x00ff00, tree.v.value.value);
-      showVector?.('hsokao', 0x0000ff, vec3.scale(tmp, tree.movement.value.value, 5));
+      showScalar('magnitude', tree.magnitude.value[0] * 10);
+      showScalar('omega', tree.omega.value[0] * 10);
+      showScalar('scratch0', (tree.scratch.scratch.value[0] * vw) / 2);
+      showScalar('beat', tree.beat.value[0] * vw);
+      showScalar('attack0', tree.scratch.attack.value[0] * vw);
+      showScalar('result0', (tree.scratch.result.value[0] * vw) / 2);
+      showScalar('result1', (tree.effect.result.value[0] * vw) / 2);
+      showVector?.('ho', 0x00ff00, tree.velocity.value);
+      showVector?.('hsokao', 0x0000ff, vec3.scale(tmp, tree.movement.value, 5));
       showVector?.('gioqkg', 0xaaaa00, tmp2);
       (window as any).aaaa = tmp;
 
@@ -62,12 +66,24 @@ const App = () => {
         ctx.decodeAudioData(await res.arrayBuffer(), resolve);
       });
       const source = ctx.createBufferSource();
+      const filter = ctx.createBiquadFilter();
       source.buffer = buffer;
       source.loop = true;
-      source.connect(ctx.destination);
+      // shaper.curve = makeDistortionCurve(new Float32Array(44100 / 3));
+      source.connect(filter);
+      filter.connect(ctx.destination);
       // source.start();
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      //
       const update = () => {
-        source.playbackRate.value = 10 ** tree.ar.value.value[0];
+        source.playbackRate.value = tree.scratch.result.value[0];
+        filter.frequency.value += tree.effect.result.value[0] * 10;
+        gain.gain.value = tree.beat.value[0];
         requestAnimationFrame(update);
       };
       update();
@@ -120,5 +136,17 @@ const VItem = styled.div<VProps>`
     background-color: ${({ v }) => (v < 0 ? '#f99' : '#99f')};
   }
 `;
+
+// const makeDistortionCurve = (curve: Float32Array, amount: number = 50) => {
+//   const k = clamp(amount, 0, 100);
+//   const { length } = curve;
+//   const deg = Math.PI / 180;
+//   let x;
+//   for (let i = 0; i < length; ++i) {
+//     x = (i * 2) / length - 1;
+//     curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+//   }
+//   return curve;
+// };
 
 export default App;

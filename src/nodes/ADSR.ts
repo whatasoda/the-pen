@@ -26,8 +26,7 @@ const ADSR = vn.defineNode(
     output: 'f32-1-moment',
   },
   ({ attack, decay, sustain, release, attackWeight, decayWeight, releaseWeight }: Props) => {
-    let value = 0;
-    let active = false;
+    let curr = 0;
     const subSustain = 1 - sustain;
     const attackBezier = createCubicBezier(attackWeight ?? 0);
     const decayBezier = createCubicBezier(decayWeight ?? 0);
@@ -41,24 +40,24 @@ const ADSR = vn.defineNode(
     };
 
     return ({ inputs, output }) => {
-      const input = inputs.input.value[0];
-      if (input) {
-        if (!active) start();
-        value = Math.max(value, input);
-        active = true;
-      } else {
-        active = false;
+      const input = Math.sign(inputs.input.value[0]);
+      if (input && input !== curr) {
+        start();
+        output.value[0] = input;
       }
-      if (value) {
-        if (frames[0]) {
-          output.value[0] = value * attackBezier(-(--frames[0] / attack) + 1);
-        } else if (frames[1]) {
-          output.value[0] = value * (sustain + decayBezier(subSustain * (--frames[1] / decay)));
-        } else if (frames[2]) {
-          if (!input) output.value[0] = value * sustain * releaseBezier(--frames[2] / release);
-        } else {
-          value = 0;
-        }
+      curr = input;
+
+      const sign = Math.sign(output.value[0]);
+      if (!sign) {
+        output.value[0] = 0;
+      } else if (frames[0]) {
+        output.value[0] = sign * attackBezier(-(--frames[0] / attack) + 1);
+      } else if (frames[1]) {
+        output.value[0] = sign * (sustain + decayBezier(subSustain * (--frames[1] / decay)));
+      } else if (input) {
+        output.value[0] = sign * sustain;
+      } else if (frames[2]) {
+        output.value[0] = sign * sustain * releaseBezier(--frames[2] / release);
       } else {
         output.value[0] = 0;
       }

@@ -1,4 +1,5 @@
 import vn from 'vector-node';
+import { vec3 } from 'gl-matrix';
 import AxisRotation from '../nodes/AxisRotation';
 import Length from '../nodes/Length';
 import Movement from '../nodes/Movement';
@@ -9,10 +10,18 @@ import ZeroPeak from '../nodes/ZeroPeak';
 import Circle from '../nodes/Circle';
 import Radius from '../nodes/Radius';
 import SurfaceCoord from '../nodes/SurfaceCoord';
-import { vec3 } from 'gl-matrix';
 import PositionRadius from '../nodes/PositionRadius';
 import AbsoluteAcceleration from '../nodes/AbsoluteAcceleration';
-import Hoge from '../nodes/Hoge';
+import AttackCatcher from '../nodes/AttackCatcher';
+import ADSR from '../nodes/ADSR';
+import MagnitudeFilter from '../nodes/MagnitudeFIlter';
+import Direction from '../nodes/Direction';
+import Omega from '../nodes/Omega';
+import SignedOmega from '../nodes/SignedOmega';
+import BezierFilter from '../nodes/BezierFilter';
+import Scratch from '../nodes/Scratch';
+import Toggle from '../nodes/Toggle';
+import BeatGenerator from '../nodes/BeatGenerator';
 
 const motion = vn.Scheduler({
   rotation: 'f32-3-moment',
@@ -33,63 +42,74 @@ const motion = vn.Scheduler({
     PositionRadius,
     SurfaceCoord,
     AbsoluteAcceleration,
-    Hoge,
+    AttackCatcher,
+    ADSR,
+    MagnitudeFilter,
+    Direction,
+    Omega,
+    SignedOmega,
+    BezierFilter,
+    Scratch,
+    Toggle,
+    BeatGenerator,
   },
   (NODE, inputs) => {
     const { dt } = inputs;
     const {
-      Rotation,
       Velocity,
-      AxisRotation,
-      Circle,
-      Radius,
-      SurfaceCoord,
+      Length,
       AbsoluteAcceleration,
       Movement,
-      Hoge,
-      // PositionRadius,
+      AttackCatcher,
+      ADSR,
+      Direction,
+      Omega,
+      SignedOmega,
+      BezierFilter,
+      Scratch,
+      Toggle,
+      BeatGenerator,
     } = NODE;
 
-    const rotation = Rotation({ dt, rateEuler: inputs.rotation }, { sequenceSize: 3 });
-    const acceleration = AbsoluteAcceleration(
-      { acceleration: inputs.acceleration, orientation: inputs.orientation },
-      {},
-    );
-    const velocity = Velocity({ dt, acceleration }, { attenuationRate: 0.98 });
-
-    const hoge = Hoge({ acceleration, velocity }, { direction: vec3.fromValues(0, 1, 0), threshold: 0.4 });
-
+    const acceleration = AbsoluteAcceleration({ ...inputs }, {});
+    const velocity = Velocity({ dt, acceleration }, { attenuationRate: 0.95 });
+    const accelerationDirection = Direction({ input: acceleration }, {});
+    const velocityDirection = Direction({ input: velocity }, {});
+    const omega = Omega({ velocityDirection, dt }, {});
+    const magnitude = Length({ input: acceleration }, {});
     const movement = Movement({ dt, velocity }, {});
-    // const radius = PositionRadius(
-    //   {
-    //     position: SurfaceCoord({ input: movement }, { normal: vec3.fromValues(0, 1, 0) }),
-    //     dt,
-    //   },
-    //   {},
-    // );
-    const radius = Radius(
-      {
-        dt,
-        velocity: SurfaceCoord({ input: velocity }, { normal: vec3.fromValues(1, 0, 0) }),
-      },
-      {
-        speedThreshold: 0.5,
-      },
-    );
-    const circle = Circle(
-      { radius },
-      {
-        fluctuationThreshold: 4,
-        maxRadius: 20,
-        minRadius: 1,
-        rangeThreshold: 3,
-      },
+
+    const hogege = (v: number, ...args: V3) => {
+      const axis = vec3.fromValues(...args);
+      const signedOmega = SignedOmega({ omega, velocityDirection }, { axis, dotThreshold: 0.6 });
+      const filteredSignedOmega = BezierFilter({ input: signedOmega }, { bezierWeight: 0.5, range: 10 });
+      const attack = AttackCatcher(
+        { acceleration, velocity, velocityDirection, accelerationDirection },
+        { direction: axis, threshold: 30, peakWeight: 12 },
+      );
+      const scratch = Scratch(
+        { magnitude, filteredSignedOmega },
+        { omegaBase: 10, magnitudeThreshold: 0, min: 0.02, max: 30 },
+      );
+      const result = Toggle({ input: attack, value: scratch }, { defaultValue: v, mode: 'simple' });
+      return { attack, scratch, result };
+    };
+    const { scratch } = hogege(0, 0, 0, 1);
+    const beat = ADSR(
+      { input: BeatGenerator({ input: scratch }, { framePerBeat: 8, valuePerBeat: 60 }) },
+      { attack: 2, decay: 3, sustain: 0.3, release: 2, releaseWeight: -0.3 },
     );
 
-    const axis = vec3.fromValues(0, 0, 1);
-    const ar = AxisRotation({ rotationQuat: rotation }, { axis });
-
-    return { r: rotation, v: velocity, ar, circle, radius, accel: acceleration, movement, hoge };
+    return {
+      velocity,
+      scratch: hogege(1, 0, 1, 0),
+      effect: hogege(0, -1, 0, 0),
+      acceleration,
+      beat,
+      movement,
+      magnitude,
+      omega,
+    };
   },
 );
 

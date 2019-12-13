@@ -1,4 +1,4 @@
-import { vec3, quat } from 'gl-matrix';
+import { vec3, quat, vec2, vec4 } from 'gl-matrix';
 
 /**
  *   v 0           1           2           3
@@ -117,63 +117,38 @@ RhombicDodecahedron.planeToSphere = (() => {
   };
 })();
 
-RhombicDodecahedron.sphereToPlane = (P: vec3) => {
-  return parse(0, P) || parse(1, P) || parse(2, P) || parse(3, P);
-};
+const Coord = new Float32Array(4);
+const IDX = new Uint8Array([0, 1, 2, 3, 0, 1, 2]);
+RhombicDodecahedron.sphereToPlane = (out: vec2, P: vec3) => {
+  vec4.set(
+    Coord,
+    Math.atan2(vec3.dot(Regions[0].V, P), vec3.dot(Regions[0].U, P)) / PI_3,
+    Math.atan2(vec3.dot(Regions[1].V, P), vec3.dot(Regions[1].U, P)) / PI_3,
+    Math.atan2(vec3.dot(Regions[2].V, P), vec3.dot(Regions[2].U, P)) / PI_3,
+    Math.atan2(vec3.dot(Regions[3].V, P), vec3.dot(Regions[3].U, P)) / PI_3,
+  );
 
-const parse = (idx: RegionKey, P: vec3): RhombicDodecahedronPoint | null => {
-  const curr = convertPoint(idx, P);
-  if (typeof curr.u === 'number') {
-    const { v } = convertPoint(curr.next, P);
-    if (typeof v !== 'number') return null;
-    const vIdx = ((curr.next - idx + 3) % 4) as RelativeKey;
-    return {
-      uIdx: idx,
-      vIdx,
-      u: curr.u,
-      v,
-    };
-  } else if (typeof curr.v === 'number') {
-    const { u } = convertPoint(curr.next, P);
-    if (typeof u !== 'number') return null;
-    const vIdx = ((idx - curr.next + 3) % 4) as RelativeKey;
-    return {
-      uIdx: curr.next,
-      vIdx,
-      u,
-      v: curr.v,
-    };
+  for (let i = 0; i < 4; i++) {
+    const x0 = Coord[i];
+    const x1 = Coord[IDX[i + 1]];
+    const x2 = Coord[IDX[i + 2]];
+    const x3 = Coord[IDX[i + 3]];
+
+    if (x0 <= 0) {
+      continue;
+    } else if (x0 <= 1) {
+      if (-1 < x1 && x1 <= 0) return vec2.set(out, x0, x1 + 1);
+    } else if (x0 <= 2) {
+      if (-2 < x2 && x2 <= -1) return vec2.set(out, x0, x2 + 2);
+    } else if (x0 <= 3) {
+      if (-3 < x3 && x3 <= -2) return vec2.set(out, x0, x3 + 3);
+    }
   }
   return null;
 };
 
-const convertPoint = (type: RegionKey, P: vec3) => {
-  const { O, U, V } = Regions[type];
-  const height = vec3.dot(O, P);
-  const rad = Math.atan2(vec3.dot(V, P), vec3.dot(U, P)) + PI;
-
-  const idx = Math.floor(rad / PI_3);
-  const theta = rad % PI_3;
-  const next = ((idx + 1) % 4) as RegionKey;
-  if (!validateHeight(height, theta, idx)) return { next };
-
-  const pos = theta / PI_3;
-  return idx < 2 ? { next, u: pos } : { next, v: pos };
-};
-
-const validateHeight = (height: number, theta: number, idx: number) => {
-  const t = calcT(theta, idx);
-  if (height < calcAlphaHeight(t) || calcBetaHeight(t) < height) return false;
-  return true;
-};
-
 const calcT = (theta: number, idx: number) => {
   return (idx % 2 ? 1 : -1) * Math.tan(theta - PI_6) + 0.5;
-};
-
-const calcAlphaHeight = (t: number) => {
-  const alpha = SQRT1_8 * (t + 1);
-  return -alpha * (alpha ** 2 + 1) ** 0.5;
 };
 
 const calcBetaHeight = (t: number) => {

@@ -2,8 +2,6 @@ import vn from 'vector-node';
 import { vec3 } from 'gl-matrix';
 
 interface Props {
-  maxSpeed: number;
-  minSpeed: number;
   maxRadius: number;
   minRadius: number;
 }
@@ -13,26 +11,19 @@ interface Props {
 const Radius = vn.defineNode(
   {
     inputs: {
-      velocity: 'f32-3-moment',
-      dt: 'f32-1-moment',
+      acceleration: 'f32-3-moment',
+      velocityDirection: 'f32-3-moment',
+      omega: 'f32-1-moment',
     },
     output: 'f32-1-moment',
   },
-  ({ minSpeed, maxSpeed, minRadius, maxRadius }: Props) => {
-    const prev = vec3.create();
-    const curr = vec3.create();
-    return ({ inputs: { velocity, dt }, output }) => {
+  ({ minRadius, maxRadius }: Props) => {
+    return ({ inputs: { acceleration, velocityDirection, omega }, output }) => {
       output.value[0] = 0; // reset output
-      vec3.normalize(curr, velocity.value);
-      const cosTheta = vec3.dot(prev, curr);
-      vec3.copy(prev, curr);
+      const magnitude = vec3.length(acceleration.value);
+      const a_r = Math.sqrt(magnitude ** 2 - vec3.dot(velocityDirection.value, acceleration.value) ** 2);
 
-      const speed = vec3.length(velocity.value);
-      if (speed < minSpeed || maxSpeed < speed) return;
-
-      const theta = Math.acos(cosTheta);
-      const omega = theta / dt.value[0];
-      const radius = speed / omega;
+      const radius = a_r / omega.value[0] ** 2;
       if (radius < minRadius || maxRadius < radius) return;
       output.value[0] = radius;
     };

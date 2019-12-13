@@ -50,7 +50,7 @@ const Visualizer = memo(
       const scene = new Scene();
       scene.modelViewMatrix.identity();
       const camera = new PerspectiveCamera(75, width / height, 0.1, 1000);
-      camera.position.set(2, 2, 2);
+      camera.position.set(2, 0, 0);
       camera.lookAt(0, 0, 0);
       const renderer = new WebGLRenderer({ canvas, preserveDrawingBuffer: true });
       renderer.autoClearColor = false;

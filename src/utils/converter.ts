@@ -27,6 +27,17 @@ cartesianToArray.set = <V extends V3 | vec3>(out: V, { x, y, z }: CartesianCoord
 // https://www.google.com/search?q=1-(sqrt(2)**-abs(x)-1)**2
 export const zeroPeak = (value: number) => 1 - (SQRT2 ** -abs(value) - 1) ** 2;
 
+export const peakDot = (weight: number, baseDirection: vec3, inputDirection: vec3) => {
+  const dot = vec3.dot(baseDirection, inputDirection);
+  return Math.sign(dot) * zeroPeak(weight * (1 - Math.abs(dot)));
+};
+
+export const distortion = (i: number, length: number, amount: number): number => {
+  const t = (2 * i) / length - 1;
+  const k = (2 * amount) / (1 - amount);
+  return ((1 + k) * t) / (1 + k * Math.abs(t));
+};
+
 export const sqrSubtract = (a: number, b: number) => a ** 2 - b ** 2;
 export const sqrPositiveSubtract = (a: number, b: number, threshold: number = 0) => {
   return max(sqrSubtract(a, b) + threshold, 0);
