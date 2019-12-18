@@ -16,7 +16,6 @@ module.exports = merge({
     path: distRoot,
     chunkFilename: '[name].[hash].bundle.js',
   },
-  devtool: 'source-map',
   devServer: {
     contentBase: distRoot,
     compress: false,
@@ -49,10 +48,15 @@ module.exports = merge({
           {
             loader: 'ts-loader',
             options: {
+              configFile: path.resolve(__dirname, './tsconfig.app.json'),
               getCustomTransformers: () => ({ before: [styledComponentsTransformer] }),
             },
           },
         ],
+      },
+      {
+        test: /\.m4a$/,
+        use: ['file-loader'],
       },
     ],
   },

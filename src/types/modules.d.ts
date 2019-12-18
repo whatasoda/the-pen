@@ -6,6 +6,11 @@ declare module '*.sf2' {
   export = data;
 }
 
+declare module '*.m4a' {
+  const _path: string;
+  export default _path;
+}
+
 declare module 'adsr-gain-node' {
   export = AdsrGainNode;
   class AdsrGainNode {

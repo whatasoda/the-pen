@@ -22,6 +22,8 @@ import BezierFilter from '../nodes/BezierFilter';
 import Scratch from '../nodes/Scratch';
 import Toggle from '../nodes/Toggle';
 import BeatGenerator from '../nodes/BeatGenerator';
+import OmegaRotation from '../nodes/OmegaRotation';
+import Ball from '../nodes/Ball';
 
 const motion = vn.Scheduler({
   rotation: 'f32-3-moment',
@@ -52,6 +54,8 @@ const motion = vn.Scheduler({
     Scratch,
     Toggle,
     BeatGenerator,
+    OmegaRotation,
+    Ball,
   },
   (NODE, inputs) => {
     const { dt } = inputs;
@@ -61,14 +65,14 @@ const motion = vn.Scheduler({
       AbsoluteAcceleration,
       Movement,
       AttackCatcher,
-      ADSR,
       Direction,
       Omega,
       SignedOmega,
       BezierFilter,
       Scratch,
       Toggle,
-      BeatGenerator,
+      OmegaRotation,
+      Ball,
     } = NODE;
 
     const acceleration = AbsoluteAcceleration({ ...inputs }, {});
@@ -94,21 +98,19 @@ const motion = vn.Scheduler({
       const result = Toggle({ input: attack, value: scratch }, { defaultValue: v, mode: 'simple' });
       return { attack, scratch, result };
     };
-    const { scratch } = hogege(0, 0, 0, 1);
-    const beat = ADSR(
-      { input: BeatGenerator({ input: scratch }, { framePerBeat: 8, valuePerBeat: 60 }) },
-      { attack: 2, decay: 3, sustain: 0.3, release: 2, releaseWeight: -0.3 },
-    );
+
+    const omegaRotation = OmegaRotation({ velocityDirection }, { dotThreshold: 0 });
+    const ball = Ball({ rotation: omegaRotation, magnitude }, {});
 
     return {
       velocity,
       scratch: hogege(1, 0, 1, 0),
       effect: hogege(0, -1, 0, 0),
       acceleration,
-      beat,
       movement,
       magnitude,
       omega,
+      ball,
     };
   },
 );

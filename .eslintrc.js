@@ -2,6 +2,6 @@ module.exports = {
   extends: ['@whatasoda'],
   parserOptions: {
     sourceType: 'module',
-    project: './tsconfig.json',
+    project: './tsconfig.eslint.json',
   }
 }

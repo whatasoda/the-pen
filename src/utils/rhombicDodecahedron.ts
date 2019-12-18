@@ -1,8 +1,8 @@
-import { vec3, quat, vec2, vec4 } from 'gl-matrix';
+import { vec3, vec2, vec4 } from 'gl-matrix';
 
 /**
- *   v 0           1           2           3
- * u   |           |           |           |
+ *   u 0           1           2           3
+ * v   |           |           |           |
  * 0 --+-----------+-----------+-----------+--
  *     |           |           |           |
  * A   |     B     |     C     |     D     |
@@ -23,36 +23,20 @@ import { vec3, quat, vec2, vec4 } from 'gl-matrix';
  *     |           |           |           |
  */
 
-interface RhombicDodecahedronPoint {
-  uIdx: RegionKey;
-  vIdx: RelativeKey;
-  u: number;
-  v: number;
-}
-
-type V = Float32Tuple<3>;
 type RegionKey = 0 | 1 | 2 | 3;
-type RelativeKey = 0 | 1 | 2;
+type V = Float32Tuple<3>;
 interface Region {
-  O: V;
   U: V;
   V: V;
 }
 
-const { SQRT1_2, PI } = Math;
-const SQRT1_8 = 8 ** -0.5;
+const { PI } = Math;
 const PI_3 = PI / 3;
-const PI_6 = PI / 6;
 const cos30 = Math.cos(PI / 6);
 const cos60 = Math.cos(PI / 3);
 
 const AXES = new Float32Array([
   /* eslint-disable prettier/prettier */
-  /* O - A */  cos60, cos30,      0,
-  /* O - B */      0, cos30, -cos60,
-  /* O - C */ -cos60, cos30,      0,
-  /* O - D */      0, cos30,  cos60,
-
   /* U - A */ -cos30, cos60,      0,
   /* U - B */      0, cos60,  cos30,
   /* U - C */  cos30, cos60,      0,
@@ -65,61 +49,61 @@ const AXES = new Float32Array([
   /* eslint-enable prettier/prettier */
 ]);
 
-const RhombicDodecahedron = () => {};
-
 const Regions = ((): [Region, Region, Region, Region] => {
   const gen = (i: number, len: number) => () => ((i += len), [i - len, i]);
-  const O = gen(0, 3);
-  const U = gen(12, 3);
-  const V = gen(24, 3);
+  const U = gen(0, 3);
+  const V = gen(12, 3);
   return [
     {
-      O: AXES.subarray(...O()) as V,
       U: AXES.subarray(...U()) as V,
       V: AXES.subarray(...V()) as V,
     },
-    /* B */
     {
-      O: AXES.subarray(...O()) as V,
       U: AXES.subarray(...U()) as V,
       V: AXES.subarray(...V()) as V,
     },
-    /* C */
     {
-      O: AXES.subarray(...O()) as V,
       U: AXES.subarray(...U()) as V,
       V: AXES.subarray(...V()) as V,
     },
-    /* D */
     {
-      O: AXES.subarray(...O()) as V,
       U: AXES.subarray(...U()) as V,
       V: AXES.subarray(...V()) as V,
     },
   ];
 })();
 
-RhombicDodecahedron.planeToSphere = (() => {
-  const rotation = quat.create();
-  const tmp = vec3.create();
-  return (out: vec3, { u, uIdx, v, vIdx }: RhombicDodecahedronPoint) => {
+const planeToSphere = (() => {
+  const tmpU = vec3.create();
+  const tmpV = vec3.create();
+  return (out: vec3, plane: vec2) => {
+    const u = plane[0];
+    const uIdx = Math.floor(u) as RegionKey;
     const uTheta = u * PI_3;
-    const vTheta = v * PI_3;
-    const height = calcBetaHeight(calcT(uIdx, uTheta));
-    const { O, U } = Regions[uIdx];
-    quat.setAxisAngle(rotation, O, uTheta);
-    vec3.transformQuat(tmp, U, rotation);
-    vec3.scaleAndAdd(tmp, tmp, O, SQRT1_2 - height);
 
-    quat.setAxisAngle(rotation, Regions[(uIdx + vIdx + 1) % 4].O, vTheta);
-    vec3.transformQuat(tmp, tmp, rotation);
-    vec3.normalize(out, tmp);
+    const v = plane[1];
+    const vTheta = (v - uIdx) * PI_3;
+    const vIdx = IDX[Math.floor(v) + uIdx] as RegionKey;
+    {
+      const { U, V } = Regions[uIdx];
+      vec3.scale(tmpU, U, Math.cos(uTheta));
+      vec3.scaleAndAdd(tmpU, tmpU, V, Math.sin(uTheta));
+    }
+
+    {
+      const { V, U } = Regions[vIdx];
+      vec3.scale(tmpV, V, Math.cos(vTheta));
+      vec3.scaleAndAdd(tmpV, tmpV, U, Math.sin(vTheta));
+    }
+
+    vec3.scaleAndAdd(out, tmpU, tmpV, -vec3.dot(tmpU, tmpV));
+    vec3.normalize(out, out);
   };
 })();
 
 const Coord = new Float32Array(4);
 const IDX = new Uint8Array([0, 1, 2, 3, 0, 1, 2]);
-RhombicDodecahedron.sphereToPlane = (out: vec2, P: vec3) => {
+const sphereToPlane = (out: vec2, P: vec3) => {
   vec4.set(
     Coord,
     Math.atan2(vec3.dot(Regions[0].V, P), vec3.dot(Regions[0].U, P)) / PI_3,
@@ -137,21 +121,16 @@ RhombicDodecahedron.sphereToPlane = (out: vec2, P: vec3) => {
     if (x0 <= 0) {
       continue;
     } else if (x0 <= 1) {
-      if (-1 < x1 && x1 <= 0) return vec2.set(out, x0, x1 + 1);
+      if (-1 < x1 && x1 <= 0) return vec2.set(out, x0, x1 + 1 + i);
     } else if (x0 <= 2) {
-      if (-2 < x2 && x2 <= -1) return vec2.set(out, x0, x2 + 2);
+      if (-2 < x2 && x2 <= -1) return vec2.set(out, x0, x2 + 2 + i);
     } else if (x0 <= 3) {
-      if (-3 < x3 && x3 <= -2) return vec2.set(out, x0, x3 + 3);
+      if (-3 < x3 && x3 <= -2) return vec2.set(out, x0, x3 + 3 + i);
     }
   }
   return null;
 };
 
-const calcT = (theta: number, idx: number) => {
-  return (idx % 2 ? 1 : -1) * Math.tan(theta - PI_6) + 0.5;
-};
+const RhombicDodecahedron = { sphereToPlane, planeToSphere };
 
-const calcBetaHeight = (t: number) => {
-  const beta = SQRT1_8 * (2 - t);
-  return beta * (beta ** 2 + 1) ** 0.5;
-};
+export default RhombicDodecahedron;

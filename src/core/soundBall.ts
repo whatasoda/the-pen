@@ -1,8 +1,10 @@
 import sphericalIntersection, { IntersectionObject } from '../utils/sphericalIntersection';
 import { vec3 } from 'gl-matrix';
 
+export type Pin = [Float32Tuple<6>, SoundProfile];
+
 interface SoundBallProfile {
-  pins: [Float32Tuple<6>, SoundProfile][];
+  pins: Pin[];
 }
 
 export interface SoundProfile {
