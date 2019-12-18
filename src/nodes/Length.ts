@@ -4,15 +4,16 @@ import { vec3 } from 'gl-matrix';
 const Length = vn.defineNode(
   {
     inputs: {
-      input: 'f32-3-moment',
+      input: 'f32-3',
     },
-    output: 'f32-1-moment',
+    outputs: { output: 'f32-1' },
+    events: {},
   },
   () => {
-    return ({ inputs: { input }, output }) => {
-      output.value[0] = vec3.length(input.value);
+    return ({ i: { input }, o: { output } }) => {
+      output[0] = vec3.length(input);
     };
   },
-);
+)({});
 
 export default Length;

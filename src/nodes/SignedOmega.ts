@@ -1,33 +1,37 @@
 import vn from 'vector-node';
 import { vec3 } from 'gl-matrix';
 
-interface Props {
-  axis: vec3;
+interface Uniforms {
   dotThreshold: number;
+}
+
+interface Attributes {
+  axis: vec3;
 }
 
 const SignedOmega = vn.defineNode(
   {
     inputs: {
-      velocityDirection: 'f32-3-moment',
-      omega: 'f32-1-moment',
+      velocityDirection: 'f32-3',
+      omega: 'f32-1',
     },
-    output: 'f32-1-moment',
+    outputs: { output: 'f32-1' },
+    events: {},
   },
-  ({ axis, dotThreshold }: Props) => {
+  (_, { dotThreshold }: Uniforms, { axis }: Attributes) => {
     const inputAxis = vec3.create();
     const prev = vec3.create();
     vec3.normalize(axis, axis);
-    return ({ inputs: { velocityDirection, omega }, output }) => {
-      const curr = velocityDirection.value;
+    return ({ i: { velocityDirection, omega }, o: { output } }) => {
+      const curr = velocityDirection;
       vec3.cross(inputAxis, prev, curr);
       vec3.normalize(inputAxis, inputAxis);
       vec3.copy(prev, curr);
       const dot = vec3.dot(inputAxis, axis);
       const coef = Math.sign(dot) * Number(Math.abs(dot) > dotThreshold);
-      output.value[0] = coef * omega.value[0];
+      output[0] = coef * omega[0];
     };
   },
-);
+)({ dotThreshold: 0.6 });
 
 export default SignedOmega;

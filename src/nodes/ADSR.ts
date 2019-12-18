@@ -1,7 +1,7 @@
 import vn from 'vector-node';
 import createCubicBezier from '../utils/cubicBezier';
 
-interface Props {
+interface Attributes {
   /** duration as frame */
   attack: number;
   /** duration as frame */
@@ -20,12 +20,11 @@ interface Props {
 
 const ADSR = vn.defineNode(
   {
-    inputs: {
-      input: 'f32-1-moment',
-    },
-    output: 'f32-1-moment',
+    inputs: { input: 'f32-1' },
+    outputs: { output: 'f32-1' },
+    events: {},
   },
-  ({ attack, decay, sustain, release, attackWeight, decayWeight, releaseWeight }: Props) => {
+  (_0, _1, { attack, decay, sustain, release, attackWeight, decayWeight, releaseWeight }: Attributes) => {
     let curr = 0;
     const subSustain = 1 - sustain;
     const attackBezier = createCubicBezier(attackWeight ?? 0);
@@ -39,30 +38,30 @@ const ADSR = vn.defineNode(
       frames[2] = release;
     };
 
-    return ({ inputs, output }) => {
-      const input = Math.sign(inputs.input.value[0]);
+    return ({ i, o: { output } }) => {
+      const input = Math.sign(i.input[0]);
       if (input && input !== curr) {
         start();
-        output.value[0] = input;
+        output[0] = input;
       }
       curr = input;
 
-      const sign = Math.sign(output.value[0]);
+      const sign = Math.sign(output[0]);
       if (!sign) {
-        output.value[0] = 0;
+        output[0] = 0;
       } else if (frames[0]) {
-        output.value[0] = sign * attackBezier(-(--frames[0] / attack) + 1);
+        output[0] = sign * attackBezier(-(--frames[0] / attack) + 1);
       } else if (frames[1]) {
-        output.value[0] = sign * (sustain + decayBezier(subSustain * (--frames[1] / decay)));
+        output[0] = sign * (sustain + decayBezier(subSustain * (--frames[1] / decay)));
       } else if (input) {
-        output.value[0] = sign * sustain;
+        output[0] = sign * sustain;
       } else if (frames[2]) {
-        output.value[0] = sign * sustain * releaseBezier(--frames[2] / release);
+        output[0] = sign * sustain * releaseBezier(--frames[2] / release);
       } else {
-        output.value[0] = 0;
+        output[0] = 0;
       }
     };
   },
-);
+)({});
 
 export default ADSR;

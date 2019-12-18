@@ -2,7 +2,7 @@ import vn from 'vector-node';
 import { peakDot } from '../utils/converter';
 import { vec3 } from 'gl-matrix';
 
-interface Props {
+interface Uniforms {
   threshold: number;
   /** around 10 seems to be fine */
   peakWeight: number;
@@ -11,14 +11,15 @@ interface Props {
 const AttackTracker = vn.defineNode(
   {
     inputs: {
-      acceleration: 'f32-3-moment',
-      accelerationDirection: 'f32-3-moment',
-      velocity: 'f32-3-moment',
-      velocityDirection: 'f32-3-moment',
+      acceleration: 'f32-3',
+      accelerationDirection: 'f32-3',
+      velocity: 'f32-3',
+      velocityDirection: 'f32-3',
     },
-    output: 'f32-3-moment',
+    outputs: { output: 'f32-3' },
+    events: {},
   },
-  ({ threshold, peakWeight }: Props) => {
+  (_, { threshold, peakWeight }: Uniforms) => {
     const calcCoef = (baseDirection: vec3, inputDirection: vec3) => {
       return peakDot(peakWeight, baseDirection, inputDirection);
     };
@@ -26,22 +27,22 @@ const AttackTracker = vn.defineNode(
     const direction = vec3.create();
     let prevSpeed = 0;
     let currSpeed = 0;
-    return ({ inputs: { velocity, acceleration, accelerationDirection, velocityDirection }, output }) => {
-      const nextSpeed = vec3.length(velocity.value);
+    return ({ i: { velocity, acceleration, accelerationDirection, velocityDirection }, o: { output } }) => {
+      const nextSpeed = vec3.length(velocity);
       const speedChange = currSpeed - prevSpeed;
-      const turningDegree = vec3.dot(accelerationDirection.value, velocityDirection.value);
-      const magnitude = vec3.length(acceleration.value) * calcCoef(direction, accelerationDirection.value);
+      const turningDegree = vec3.dot(accelerationDirection, velocityDirection);
+      const magnitude = vec3.length(acceleration) * calcCoef(direction, accelerationDirection);
       if (turningDegree * speedChange <= 0 && magnitude > threshold) {
-        vec3.copy(output.value, direction);
+        vec3.copy(output, direction);
       } else {
-        vec3.set(output.value, 0, 0, 0);
+        vec3.set(output, 0, 0, 0);
       }
 
       prevSpeed = currSpeed;
       currSpeed = nextSpeed;
-      vec3.copy(direction, velocityDirection.value);
+      vec3.copy(direction, velocityDirection);
     };
   },
-);
+)({ threshold: 30, peakWeight: 12 });
 
 export default AttackTracker;

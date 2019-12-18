@@ -5,21 +5,22 @@ import { vec3 } from 'gl-matrix';
 const AbsoluteAcceleration = vn.defineNode(
   {
     inputs: {
-      acceleration: 'f32-3-moment',
-      orientation: 'f32-3-moment',
+      acceleration: 'f32-3',
+      orientation: 'f32-3',
     },
-    output: 'f32-3-moment',
+    outputs: { output: 'f32-3' },
+    events: {},
   },
   () => {
     const tmp = quat.create();
-    return ({ inputs: { acceleration, orientation }, output }) => {
-      const [alpha, beta, gamma] = orientation.value;
-      const [x, y, z] = acceleration.value;
+    return ({ i: { acceleration, orientation }, o: { output } }) => {
+      const [alpha, beta, gamma] = orientation;
+      const [x, y, z] = acceleration;
       quat.fromEuler(tmp, -gamma, -beta, -alpha);
-      vec3.transformQuat(output.value, [z, y, x], tmp);
-      output.value.reverse();
+      vec3.transformQuat(output, [z, y, x], tmp);
+      output.reverse();
     };
   },
-);
+)({});
 
 export default AbsoluteAcceleration;
