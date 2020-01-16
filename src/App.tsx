@@ -10,6 +10,7 @@ import RhombicDodecahedron from './utils/rhombicDodecahedron';
 import { EnvelopeProps } from './utils/envelope';
 import { useRerender } from './utils/hooks';
 import MotionUpdate from './components/MotionUpdate';
+import TapToStart from './components/TapToStart';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
@@ -24,7 +25,7 @@ const App = () => {
   const ctx = useAudio();
 
   useEffect(() => {
-    if (!ctx) return;
+    if (!ctx || requestPermission) return;
 
     const tmp2 = vec2.create();
     const generalEnvelope: EnvelopeProps = {
@@ -54,7 +55,7 @@ const App = () => {
     });
 
     return () => {};
-  }, [ctx]);
+  }, [ctx, requestPermission]);
 
   useEffect(() => {
     ball.addEventListener('update', ({ value: { arm, axis, leg } }) => {
@@ -72,11 +73,11 @@ const App = () => {
 
   return (
     <>
-      <MotionUpdate tree={MotionTree} />
       <GlobalStyle />
       <Visualizer ref={vis as any} />
+      <MotionUpdate tree={MotionTree} />
       <V entries={Object.entries(record)} mag={1} />
-      {requestPermission && <StartButton onClick={requestPermission} />}
+      {requestPermission && <TapToStart start={requestPermission} />}
     </>
   );
 };
@@ -92,18 +93,6 @@ const V = ({ entries, mag }: { entries: [string, number][]; mag: number }) => (
   </div>
 );
 
-const StartButton = styled.a`
-  z-index: 100;
-  display: block;
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  right: 0;
-  margin: auto;
-  background-color: #aaa2;
-`;
-
 interface VProps {
   v: number;
   mag: number;
@@ -117,17 +106,5 @@ const VItem = styled.div<VProps>`
     background-color: ${({ v }) => (v < 0 ? '#f99' : '#99f')};
   }
 `;
-
-// const makeDistortionCurve = (curve: Float32Array, amount: number = 50) => {
-//   const k = clamp(amount, 0, 100);
-//   const { length } = curve;
-//   const deg = Math.PI / 180;
-//   let x;
-//   for (let i = 0; i < length; ++i) {
-//     x = (i * 2) / length - 1;
-//     curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
-//   }
-//   return curve;
-// };
 
 export default App;
