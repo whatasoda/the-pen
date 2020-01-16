@@ -52,7 +52,7 @@ const ADSR = vn.defineNode(
       } else if (frames[0]) {
         output[0] = sign * attackBezier(-(--frames[0] / attack) + 1);
       } else if (frames[1]) {
-        output[0] = sign * (sustain + decayBezier(subSustain * (--frames[1] / decay)));
+        output[0] = sign * (sustain + subSustain * decayBezier(--frames[1] / decay));
       } else if (input) {
         output[0] = sign * sustain;
       } else if (frames[2]) {
