@@ -11,6 +11,11 @@ declare module '*.m4a' {
   export default _path;
 }
 
+declare module '*.svg' {
+  const _path: string;
+  export default _path;
+}
+
 declare module 'adsr-gain-node' {
   export = AdsrGainNode;
   class AdsrGainNode {

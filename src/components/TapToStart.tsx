@@ -1,17 +1,31 @@
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import React from 'react';
+import qrcode from '../assets/qrcode.svg';
 
 interface TapToStartProps {
   start: () => void;
 }
 
 const TapToStart = ({ start }: TapToStartProps) => {
+  const isSupported = useMemo(() => {
+    return Boolean(window.ondeviceorientation && window.ondevicemotion && window.ontouchstart);
+  }, []);
   return (
-    <Wrapper onClick={start}>
+    <Wrapper onClick={isSupported ? start : undefined}>
       <Title>
         Bell Ball (<Ja>仮</Ja>)
       </Title>
-      <Text>Tap to Start!</Text>
+      {isSupported ? (
+        <Text>Tap to Start!</Text>
+      ) : (
+        <Unsupported>
+          Please open this page on your smartphone.
+          <br />
+          <Ja>このページはスマートフォン用コンテンツです。</Ja>
+          <br />
+          <QRCode src={qrcode} />
+        </Unsupported>
+      )}
     </Wrapper>
   );
 };
@@ -42,6 +56,16 @@ const Text = styled.p`
 
 const Ja = styled.span`
   font-size: 0.86em;
+`;
+
+const Unsupported = styled.p`
+  color: #e63;
+  font-size: 4vw;
+  text-align: center;
+`;
+
+const QRCode = styled.img`
+  margin-top: 2vw;
 `;
 
 export default TapToStart;

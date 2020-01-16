@@ -41,7 +41,7 @@ module.exports = merge({
         ],
       },
       {
-        test: /\.m4a$/,
+        test: /\.(m4a|svg|jpg|png)$/i,
         use: ['file-loader'],
       },
     ],
