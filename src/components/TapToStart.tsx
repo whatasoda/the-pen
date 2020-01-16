@@ -7,9 +7,7 @@ interface TapToStartProps {
 }
 
 const TapToStart = ({ start }: TapToStartProps) => {
-  const isSupported = useMemo(() => {
-    return Boolean(window.ondeviceorientation && window.ondevicemotion && window.ontouchstart);
-  }, []);
+  const isSupported = useMemo(() => Boolean(window.DeviceOrientationEvent && 'ontouchstart' in window), []);
   return (
     <Wrapper onClick={isSupported ? start : undefined}>
       <Title>
