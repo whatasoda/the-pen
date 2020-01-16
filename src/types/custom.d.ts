@@ -30,7 +30,9 @@ declare global {
   }
 
   interface VisualizerHandle {
-    entry(label: string, color: number, values: vec3): void;
+    showVector: (label: string, color: number, values: vec3) => void;
+    setBall: (axis: vec3, arm: vec3, leg: vec3) => void;
+    showPin: (pos: vec3, radius: number) => void;
   }
   interface VisualizerEntry {
     values: vec3;

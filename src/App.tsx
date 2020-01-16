@@ -3,103 +3,135 @@ import Visualizer from './utils/visualizer';
 import GlobalStyle from './globalStyle';
 import { vec3, vec2 } from 'gl-matrix';
 import styled from 'styled-components';
-import motion2 from './core/motion';
 import useAudio from './core/useAudio';
-// import sample from '../sample.m4a';
 import usePermissionRequest from './utils/permission';
 import useSensorEffect from './core/useSensorEffect';
-import createSoundBall, { Pin } from './core/soundBall';
-import playSound from './core/sound';
+import MotionTree, { createSoundBall, ball, pitch } from './core/motion';
 import RhombicDodecahedron from './utils/rhombicDodecahedron';
+import { EnvelopeProps } from './utils/envelope';
 
 const App = () => {
   const vis = useRef<VisualizerHandle>(null);
-  const { record, showScalar } = useMemo(() => {
+  const { record, touch, showScalar } = useMemo(() => {
     const record: Record<string, number> = {};
     const showScalar = (k: string, v: number) => (record[k] = v);
-
-    return { showScalar, record };
+    const touch = {
+      movement: vec2.create(),
+      active: false,
+    };
+    return { showScalar, record, touch };
   }, []);
   const requestPermission = usePermissionRequest();
-  const [, setCount] = useState(0);
   const ctx = useAudio();
-  const [tree, setTree] = useState<ReturnType<typeof motion2> | null>(null);
+  const [, rerender] = useState(0);
 
-  const resetOffset = useSensorEffect(() => {
-    const tmp0 = vec3.create();
-    const tmp1 = vec3.create();
-    const tmp2 = vec3.fromValues(0, 10, 0);
-    const rerender = () => setCount((c: number) => c + 1);
-    const vw = window.innerWidth;
+  useEffect(() => {
+    const prev = vec2.create();
+    const curr = vec2.create();
+    const tmp = vec2.create();
+    let target: null | number = null;
+    let targetIndex = -1;
+    const updateTargetIdx = (e: TouchEvent) => {
+      targetIndex = Array.from(e.touches).findIndex(({ identifier }) => target === identifier);
+    };
+    const start = (e: TouchEvent) => {
+      if (touch.active) return;
+      const { identifier, clientX, clientY } = e.changedTouches[0];
+      target = identifier;
+      vec2.set(prev, clientX, clientY);
+      touch.active = true;
+      updateTargetIdx(e);
+    };
+    const move = (e: TouchEvent) => {
+      const { clientX, clientY } = e.touches[targetIndex];
+      vec2.set(curr, clientX, clientY);
+      vec2.sub(tmp, curr, prev);
+      vec2.add(touch.movement, touch.movement, tmp);
+      vec2.copy(prev, curr);
+    };
+    const end = (e: TouchEvent) => {
+      const { identifier } = e.changedTouches[0];
+      if (target !== identifier) return;
+      target = null;
+      touch.active = false;
+      updateTargetIdx(e);
+    };
+
+    window.addEventListener('touchstart', start);
+    window.addEventListener('touchmove', move);
+    window.addEventListener('touchend', end);
+    return () => {
+      window.removeEventListener('touchstart', start);
+      window.removeEventListener('touchmove', move);
+      window.removeEventListener('touchend', end);
+    };
+  }, []);
+
+  useSensorEffect(() => {
+    ball.addEventListener('update', ({ value: { arm, axis, leg } }) => {
+      vis.current?.setBall!(axis, arm, leg);
+    });
+    pitch.addEventListener('update', ({ value: { angle, speed } }) => {
+      showScalar('one', 100);
+      showScalar('angle', angle * 100);
+      showScalar('speed', speed * 100);
+      rerender((curr) => curr + 1);
+    });
     return (sensor) => {
-      const showVector = vis.current?.entry!;
-
-      const tree = motion2(({ acceleration, dt, rotation, orientation }) => {
-        vec3.copy(acceleration.value, sensor.acceleration);
-        vec3.copy(rotation.value, sensor.rotationRate);
-        vec3.copy(orientation.value, sensor.orientation);
-        dt.value[0] = sensor.dt;
-      });
-
-      setTree(tree);
-      showScalar('magnitude', tree.magnitude.value[0] * 10);
-      showScalar('omega', tree.omega.value[0] * 10);
-      showScalar('scratch0', (tree.scratch.scratch.value[0] * vw) / 2);
-      showScalar('attack0', tree.scratch.attack.value[0] * vw);
-      showScalar('result0', (tree.scratch.result.value[0] * vw) / 2);
-      showScalar('result1', (tree.effect.result.value[0] * vw) / 2);
-      showVector('ho', 0x00ff00, tree.velocity.value);
-      showVector('hu', 0x00ffff, vec3.scale(tmp1, tree.ball.value, 1));
-      showVector('hsokao', 0x0000ff, vec3.scale(tmp0, tree.movement.value, 5));
-      showVector('gioqkg', 0xaaaa00, tmp2);
-      rerender();
+      try {
+        MotionTree.update(({ acceleration, rotation, orientation, touchMovement, touchActivity, dt }) => {
+          vec3.copy(acceleration, sensor.acceleration);
+          vec3.copy(rotation, sensor.rotationRate);
+          vec3.copy(orientation, sensor.orientation);
+          vec2.copy(touchMovement, touch.movement);
+          vec2.set(touch.movement, 0, 0);
+          touchActivity[0] = Number(touch.active);
+          dt[0] = sensor.dt;
+        });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log(e);
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (!ctx || !tree) return;
+    if (!ctx) return;
 
-    window.addEventListener('touchstart', resetOffset);
-    (async () => {
-      // const res = await fetch(sample);
-      // eslint-disable-next-line no-async-promise-executor
-      // const buffer = await new Promise<AudioBuffer>(async (resolve) => {
-      //   ctx.decodeAudioData(await res.arrayBuffer(), resolve);
-      // });
-      // const source = ctx.createBufferSource();
-      // const filter = ctx.createBiquadFilter();
-      // source.buffer = buffer;
-      // source.loop = true;
-      // shaper.curve = makeDistortionCurve(new Float32Array(44100 / 3));
-      // source.connect(filter);
-      // filter.connect(ctx.destination);
-      // source.start();
+    const tmp2 = vec2.create();
+    const generalEnvelope: EnvelopeProps = {
+      attack: 0.1,
+      decay: 0.2,
+      sustain: 0.4,
+      release: 0.6,
+    };
+    const calcDuration = (v: number) => v;
+    const radius = 0.2;
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.connect(ctx.destination);
+    // const sources: AudioNode[] = [];
+    Array.from({ length: 30 }).map((_, i) => {
+      vec2.set(tmp2, Math.random() * 4, Math.random() * 3);
+      const position = vec3.create();
+      RhombicDodecahedron.planeToSphere(position, tmp2);
+      const source = ctx.createOscillator();
+      source.frequency.value = 440 * Math.log2(i / 12);
+      createSoundBall(
+        { position, radius },
+        { envelope: generalEnvelope, calcDuration, source, destination: compressor },
+      );
+      source.start();
+      const showPin = vis.current?.showPin!;
+      showPin(position, radius);
+    });
 
-      const tmp2 = vec2.create();
-      const soundBall = createSoundBall({
-        pins: Array.from({ length: 24 }).map<Pin>((_, i) => {
-          const pin = new Float32Array(6);
-          for (let j = 0; j < 2; j++) {
-            vec2.set(tmp2, Math.random() * 4, Math.random() * 3);
-            RhombicDodecahedron.planeToSphere(pin.subarray(j * 3, (j + 1) * 3) as vec3, tmp2);
-          }
-          return [pin, { freq: 440 * Math.log2(i / 12) }];
-        }),
-      });
-      const update = () => {
-        // source.playbackRate.value = tree.scratch.result.value[0];
-        // filter.frequency.value += tree.effect.result.value[0] * 10;
-        playSound(ctx, soundBall(tree.ball.value));
-        requestAnimationFrame(update);
-      };
-      update();
-    })();
-  }, [ctx, tree]);
+    return () => {};
+  }, [ctx]);
 
   return (
     <>
       <GlobalStyle />
-      <Visualizer ref={vis} />
+      <Visualizer ref={vis as any} />
       <V entries={Object.entries(record)} mag={1} />
       {requestPermission && <StartButton onClick={requestPermission} />}
     </>

@@ -5,23 +5,21 @@ const X = vec3.fromValues(1, 0, 0);
 const Y = vec3.fromValues(0, 1, 0);
 const Z = vec3.fromValues(0, 0, 1);
 
-interface Uniforms {
-  magThreshold: number;
-}
-
 const Ball = vn.defineNode(
   {
     inputs: {
-      magnitude: 'f32-1',
       rotation: 'f32-4',
     },
     outputs: {
       axis: 'f32-3',
       arm: 'f32-3',
+      leg: 'f32-3',
     },
-    events: {},
+    events: {
+      update: (axis: vec3, arm: vec3, leg: vec3) => ({ axis, arm, leg }),
+    },
   },
-  (_, { magThreshold }: Uniforms) => {
+  ({ dispatch }) => {
     const x = vec3.create();
     const y = vec3.create();
     const z = vec3.create();
@@ -31,8 +29,7 @@ const Ball = vn.defineNode(
     const outX = vec3.fromValues(1, 0, 0);
     const outY = vec3.fromValues(0, 1, 0);
     const outZ = vec3.fromValues(0, 0, 1);
-    return ({ i: { rotation, magnitude }, o: { arm, axis } }) => {
-      if (magnitude[0] < magThreshold) return;
+    return ({ i: { rotation }, o: { arm, axis, leg } }) => {
       vec3.transformQuat(x, X, rotation);
       vec3.transformQuat(y, Y, rotation);
       vec3.transformQuat(z, Z, rotation);
@@ -55,8 +52,10 @@ const Ball = vn.defineNode(
 
       vec3.copy(axis, outX);
       vec3.copy(arm, outY);
+      vec3.copy(leg, outZ);
+      dispatch('update', axis, arm, leg);
     };
   },
-)({ magThreshold: 0.7 });
+)({});
 
 export default Ball;

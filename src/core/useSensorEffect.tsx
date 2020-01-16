@@ -1,6 +1,7 @@
 import React, { useContext, createContext, FC, useMemo, useEffect } from 'react';
 import { vec3 } from 'gl-matrix';
 import { eulerToArray, cartesianToArray } from '../utils/converter';
+import createDriftTuner from '../utils/driftTuner';
 
 type OrientationEvent = WindowEventMap['deviceorientation'];
 type MotionEvent = WindowEventMap['devicemotion'];
@@ -15,11 +16,10 @@ type SensorCallback = (state: Readonly<SensorState>) => void;
 
 interface SensorContextValue {
   registry: Set<SensorCallback>;
-  resetOffset: () => void;
 }
 
 const useSensorEffect = (factory: () => SensorCallback, input: any[]) => {
-  const { registry, resetOffset } = useContext(useSensorEffect.context);
+  const { registry } = useContext(useSensorEffect.context);
   useEffect(() => {
     const callback = factory();
     registry.add(callback);
@@ -27,36 +27,40 @@ const useSensorEffect = (factory: () => SensorCallback, input: any[]) => {
       registry.delete(callback);
     };
   }, input);
-  return resetOffset;
 };
 useSensorEffect.context = createContext<SensorContextValue>(null as any);
 
 export const SensorProvider: FC = ({ children }) => {
-  const { value, dispatch, resetOffset, handleOrientation, handleMotion } = useMemo(() => {
+  const { value, dispatch, handleOrientation, handleMotion } = useMemo(() => {
     const registry = new Set<SensorCallback>();
 
     const orientation = vec3.create();
     const rotationRate = vec3.create();
     const acceleration = vec3.create();
 
-    const orientationOffset = vec3.create();
-    const resetOffset = () => ((orientationOffset[0] = orientation[0]), void 0);
+    const rotationDrift = vec3.create();
+    const accelerationDrift = vec3.create();
+    const updateRotationDrift = createDriftTuner(60, (next) => vec3.copy(rotationDrift, next));
+    const updateAccelerationDrift = createDriftTuner(60, (next) => vec3.copy(accelerationDrift, next));
     const handleOrientation = ({ alpha, beta, gamma }: OrientationEvent) => {
       eulerToArray.set(orientation, { alpha, beta, gamma });
-      vec3.sub(orientation, orientation, orientationOffset);
     };
 
     const handleMotion = (event: MotionEvent) => {
       if (!event.rotationRate || !event.acceleration) return;
       eulerToArray.set(rotationRate, event.rotationRate);
       cartesianToArray.set(acceleration, event.acceleration);
+      updateAccelerationDrift(acceleration);
+      updateRotationDrift(rotationRate);
+      vec3.sub(rotationRate, rotationRate, rotationDrift);
+      vec3.sub(acceleration, acceleration, accelerationDrift);
       state.dt = event.interval;
     };
 
     const state: SensorState = { orientation, rotationRate, acceleration, dt: 1 / 60 };
-    const value: SensorContextValue = { registry, resetOffset };
+    const value: SensorContextValue = { registry };
     const dispatch = () => registry.forEach((callback) => callback(state));
-    return { value, dispatch, resetOffset, handleOrientation, handleMotion };
+    return { value, dispatch, handleOrientation, handleMotion };
   }, []);
 
   useEffect(() => {
@@ -70,7 +74,6 @@ export const SensorProvider: FC = ({ children }) => {
 
     window.addEventListener('devicemotion', handleMotion);
     window.addEventListener('deviceorientation', handleOrientation);
-    window.addEventListener('deviceorientation', resetOffset, { once: true });
     effect();
     return () => {
       alive = false;

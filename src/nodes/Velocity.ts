@@ -5,6 +5,7 @@ interface Uniforms {
   attenuationRate: number;
 }
 
+const tmp = vec3.create();
 const Velocity = vn.defineNode(
   {
     inputs: {
@@ -16,19 +17,11 @@ const Velocity = vn.defineNode(
   },
   (_, { attenuationRate }: Uniforms) => {
     const prev = vec3.create();
-    const tmp = vec3.create();
-    return ({ i: { acceleration, dt }, o: { output } }) => {
-      const out = output;
-      // const magnitude = vec3.length(acceleration);
-      // if (magnitude < 0.3) {
-      //   vec3.scale(out, out, attenuationRate ** 3);
-      // } else {
-      const curr = acceleration;
+    return ({ i: { acceleration: curr, dt }, o: { output } }) => {
       vec3.add(tmp, prev, curr);
       vec3.copy(prev, curr);
-      vec3.scale(out, out, attenuationRate);
-      vec3.scaleAndAdd(out, out, tmp, dt[0] * 0.5);
-      // }
+      vec3.scale(output, output, attenuationRate);
+      vec3.scaleAndAdd(output, output, tmp, dt[0] * 0.5);
     };
   },
 )({ attenuationRate: 0.95 });
