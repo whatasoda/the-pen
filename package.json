@@ -4,8 +4,8 @@
   "description": "Graduation production",
   "main": "index.js",
   "scripts": {
-    "dev": "webpack-dev-server --mode development",
-    "build": "webpack --mode production"
+    "dev": "webpack-dev-server --mode development --config scripts/webpack/dev.config.js",
+    "build": "webpack --mode production --config scripts/webpack/prod.config.js"
   },
   "repository": {
     "type": "git",

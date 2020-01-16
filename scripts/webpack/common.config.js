@@ -1,27 +1,17 @@
 const createStyledComponentsTransformer = require('typescript-plugin-styled-components').default;
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const ip = require('ip');
 const path = require('path');
-const webpack = require('webpack');
 const merge = require('webpack-merge');
 
-const distRoot = path.resolve(__dirname, 'dist');
-const srcRoot = path.resolve(__dirname, 'src');
+const __rootdir = path.resolve(__dirname, '../../');
 
 const styledComponentsTransformer = createStyledComponentsTransformer();
 
 module.exports = merge({
-  entry: [path.resolve(srcRoot, 'index.ts')],
+  entry: [path.resolve(__rootdir, 'src/index.ts')],
   output: {
-    path: distRoot,
+    path: path.resolve(__rootdir, 'dist'),
     chunkFilename: '[name].[hash].bundle.js',
-  },
-  devServer: {
-    contentBase: distRoot,
-    compress: false,
-    host: ip.address() || 'localhost',
-    port: 8080,
-    https: true,
   },
   optimization: {
     splitChunks: {
@@ -32,23 +22,19 @@ module.exports = merge({
     extensions: ['.js', '.ts', '.tsx'],
   },
   plugins: [
-    new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
-    }),
     new HtmlWebpackPlugin({
-      template: path.resolve(srcRoot, 'index.html'),
+      template: path.resolve(__rootdir, 'src/index.html'),
     }),
   ],
   module: {
     rules: [
       {
         test: /\.tsx?$/,
-        include: [path.resolve(__dirname, './src')],
         use: [
           {
             loader: 'ts-loader',
             options: {
-              configFile: path.resolve(__dirname, './tsconfig.app.json'),
+              configFile: path.resolve(__rootdir, 'tsconfig.app.json'),
               getCustomTransformers: () => ({ before: [styledComponentsTransformer] }),
             },
           },
