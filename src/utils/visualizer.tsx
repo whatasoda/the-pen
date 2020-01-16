@@ -5,7 +5,7 @@ import {
   Scene,
   WebGLRenderer,
   PerspectiveCamera,
-  // PlaneGeometry,
+  DodecahedronGeometry,
   MeshBasicMaterial,
   Mesh,
   SphereGeometry,
@@ -25,7 +25,7 @@ interface Handle extends VisualizerHandle {
   leg: vec3 | null;
 }
 
-const FOV = 90;
+const FOV = 50;
 const camRadius = 1 / Math.cos((Math.PI * (180 - FOV)) / 360) + 0.01;
 
 const Visualizer = memo(
@@ -43,7 +43,7 @@ const Visualizer = memo(
       };
       const showPin = (pos: vec3, radius: number) => {
         const pin = new Mesh(
-          new SphereGeometry(2 * Math.sin(radius / 2), 20, 20),
+          new SphereGeometry(2 * Math.sin(radius / 2), 10, 5),
           new MeshBasicMaterial({ color: 0xffff00, wireframe: true }),
         );
         pin.position.set(pos[0], pos[1], pos[2]);
@@ -79,7 +79,7 @@ const Visualizer = memo(
       const Ball = new Group();
       Ball.add(
         new Mesh(
-          new SphereGeometry(1, 30, 30),
+          new DodecahedronGeometry(1, 2),
           new MeshBasicMaterial({
             color: 0x00aaaa,
             transparent: true,

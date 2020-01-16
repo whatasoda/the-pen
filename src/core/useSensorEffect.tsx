@@ -14,12 +14,8 @@ interface SensorState {
 }
 type SensorCallback = (state: Readonly<SensorState>) => void;
 
-interface SensorContextValue {
-  registry: Set<SensorCallback>;
-}
-
 const useSensorEffect = (factory: () => SensorCallback, input: any[]) => {
-  const { registry } = useContext(useSensorEffect.context);
+  const registry = useContext(useSensorEffect.context);
   useEffect(() => {
     const callback = factory();
     registry.add(callback);
@@ -28,10 +24,10 @@ const useSensorEffect = (factory: () => SensorCallback, input: any[]) => {
     };
   }, input);
 };
-useSensorEffect.context = createContext<SensorContextValue>(null as any);
+useSensorEffect.context = createContext<Set<SensorCallback>>(null as any);
 
 export const SensorProvider: FC = ({ children }) => {
-  const { value, dispatch, handleOrientation, handleMotion } = useMemo(() => {
+  const { registry, dispatch, handleOrientation, handleMotion } = useMemo(() => {
     const registry = new Set<SensorCallback>();
 
     const orientation = vec3.create();
@@ -58,23 +54,22 @@ export const SensorProvider: FC = ({ children }) => {
     };
 
     const state: SensorState = { orientation, rotationRate, acceleration, dt: 1 / 60 };
-    const value: SensorContextValue = { registry };
     const dispatch = () => registry.forEach((callback) => callback(state));
-    return { value, dispatch, handleOrientation, handleMotion };
+    return { registry, dispatch, handleOrientation, handleMotion };
   }, []);
 
   useEffect(() => {
     let alive = true;
 
-    const effect = () => {
+    const update = () => {
       if (!alive) return;
       dispatch();
-      requestAnimationFrame(effect);
+      requestAnimationFrame(update);
     };
 
     window.addEventListener('devicemotion', handleMotion);
     window.addEventListener('deviceorientation', handleOrientation);
-    effect();
+    update();
     return () => {
       alive = false;
       window.removeEventListener('devicemotion', handleMotion);
@@ -82,7 +77,7 @@ export const SensorProvider: FC = ({ children }) => {
     };
   }, []);
 
-  return <useSensorEffect.context.Provider value={value} children={children} />;
+  return <useSensorEffect.context.Provider value={registry} children={children} />;
 };
 
 export default useSensorEffect;

@@ -5,8 +5,9 @@ import { AudioPrivider } from './core/useAudio';
 import { SensorProvider } from './core/useSensorEffect';
 import { PermissionRequestProvider } from './utils/permission';
 import providerWrapper from './utils/providerWrapper';
+import { TouchEffectProvider } from './core/useTouchEffect';
 
-const Provider = providerWrapper([AudioPrivider, SensorProvider, PermissionRequestProvider]);
+const Provider = providerWrapper([AudioPrivider, SensorProvider, TouchEffectProvider, PermissionRequestProvider]);
 
 const render = () => {
   ReactDOM.render(React.createElement(Provider, {}, React.createElement(App)), document.getElementById('App'));
