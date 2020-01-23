@@ -18,6 +18,7 @@ const Pitch = vn.defineNode(
     },
     events: {
       update: (angle: number, speed: number) => ({ angle, speed }),
+      speed: (speed: number) => ({ speed }),
     },
   },
   ({ dispatch }, _, { angleThreshold, speedThreshold, attenuationRate }: Attributes) => {
@@ -29,17 +30,14 @@ const Pitch = vn.defineNode(
       const angle = quat.getAxisAngle(axis, rotation);
       const speed = vec3.length(velocity);
 
+      dispatch('update', angle / angleThreshold, speed / speedThreshold);
       if (angle < angleThreshold) {
         max = 0;
-        return;
-      } else if (angle < max) {
-        return;
+      } else if (angle >= max) {
+        max = angle;
+        if (speed >= speedThreshold) vec3.scaleAndAdd(pitch, pitch, axis, speed);
       }
-      max = angle;
-      dispatch('update', angle / angleThreshold, speed / speedThreshold);
-
-      if (speed < speedThreshold) return;
-      vec3.scaleAndAdd(pitch, pitch, axis, speed);
+      dispatch('speed', vec3.length(pitch) / speedThreshold);
     };
   },
 )({});

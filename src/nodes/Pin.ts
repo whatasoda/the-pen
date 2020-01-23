@@ -20,9 +20,17 @@ const Pin = vn.defineNode(
       timeline: 'f32-2',
       theta: 'f32-2',
     },
-    events: {},
+    events: {
+      update: (alpha: number, range: number, velocity: number, timeline: vec2, theta: vec2) => ({
+        alpha,
+        range,
+        velocity,
+        timeline,
+        theta,
+      }),
+    },
   },
-  (_0, _1, { position: P, radius: pinRadius }: PinAttributes) => {
+  ({ dispatch }, _, { position: P, radius: pinRadius }: PinAttributes) => {
     const normal = vec3.create();
     const B = vec3.create();
     const C /** prev */ = vec3.create();
@@ -80,6 +88,7 @@ const Pin = vn.defineNode(
         }
       }
       vec3.copy(C, A);
+      dispatch('update', o.alpha[0], o.range[0], o.velocity[0], o.timeline, o.theta);
     };
   },
 )({});

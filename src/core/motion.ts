@@ -42,7 +42,7 @@ export const createSoundBall = (pinAttr: PinAttributes, noteAttr: NoteAttributes
   const destroy = () => {
     MotionTree.unlisten(note);
   };
-  return { destroy };
+  return { destroy, pin };
 };
 
 export default MotionTree;
