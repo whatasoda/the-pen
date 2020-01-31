@@ -1,11 +1,10 @@
 import React, { useMemo } from 'react';
 import GlobalStyle from './globalStyle';
-import { vec3, vec2 } from 'gl-matrix';
+import { vec3 } from 'gl-matrix';
 import styled from 'styled-components';
 import useAudio from './core/useAudio';
 import usePermissionRequest from './utils/permission';
 import MotionTree from './core/motion';
-import RhombicDodecahedron from './utils/rhombicDodecahedron';
 import { EnvelopeProps } from './utils/envelope';
 import MotionUpdate from './components/MotionUpdate';
 import TapToStart from './components/TapToStart';
@@ -21,7 +20,6 @@ const App = () => {
   const pins = useMemo<PinProps[]>(() => {
     if (!ctx || requestPermission) return [];
 
-    const tmp2 = vec2.create();
     const generalEnvelope: EnvelopeProps = {
       attack: 0.1,
       decay: 0.2,
@@ -29,18 +27,30 @@ const App = () => {
       release: 0.6,
     };
     const calcDuration = (v: number) => v;
-    const radius = 0.2;
+    const radius = 0.35;
     const compressor = ctx.createDynamicsCompressor();
     compressor.connect(ctx.destination);
-    return Array.from({ length: 30 }).map((_, i) => {
-      vec2.set(tmp2, Math.random() * 4, Math.random() * 3);
-      const position = vec3.create();
-      RhombicDodecahedron.planeToSphere(position, tmp2);
+    const unit = (Math.PI * 2) / 8;
+    const freqs = [
+      [587.33, 0xff4444, Math.cos(unit), 0, Math.sin(unit)], // れ
+      [493.883, 0x44ff44, Math.cos(unit * 2), 0, Math.sin(unit * 2)], // し
+      [440.0, 0x4444ff, Math.cos(unit * 1.5), Math.sin(unit * 1.7), Math.sin(unit * 1.5)], // ら
+      [369.994, 0xff44ff, Math.cos(unit * 3), 0, Math.sin(unit * 3)], // ふぁ#
+      [349.228, 0xffff44, Math.cos(unit * 4), 0, Math.sin(unit * 4)], // ふぁ
+      [554.365, 0x44ffff, Math.cos(unit * 3.5), -Math.sin(unit * 1.7), Math.sin(unit * 3.5)],
+      [587.33, 0xff4444, Math.cos(unit * 1.9), -Math.sin(unit * 1.7), Math.sin(unit * 1.9)], // ど
+      [493.883, 0x44ff44, Math.cos(unit * 0.7), -Math.sin(unit * 1.7), Math.sin(unit * 0.7)], // ど
+    ];
+
+    return freqs.map(([freq, color, x, y, z]) => {
+      // const theta = (i / 9) * Math.PI * 2;
+      const position = vec3.fromValues(x, y, z);
+      vec3.normalize(position, position);
       const source = ctx.createOscillator();
-      source.frequency.value = 440 * Math.log2(i / 12);
+      source.frequency.value = freq;
 
       source.start();
-      return { position, radius, envelope: generalEnvelope, calcDuration, source, destination: compressor };
+      return { position, radius, color, envelope: generalEnvelope, calcDuration, source, destination: compressor };
     });
   }, [ctx, requestPermission]);
 

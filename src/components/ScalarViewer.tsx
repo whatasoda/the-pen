@@ -5,17 +5,17 @@ import styled from 'styled-components';
 
 const ScalarViewer = () => {
   const rerender = useRerender();
-  const { record, showScalar } = useMemo(() => {
+  const { record } = useMemo(() => {
     const record: Record<string, number> = {};
     const showScalar = (k: string, v: number) => (record[k] = v);
 
     return { showScalar, record };
   }, []);
   useEffect(() => {
-    pitch.addEventListener('update', ({ value: { angle, speed } }) => {
-      showScalar('one', 100);
-      showScalar('angle', angle * 100);
-      showScalar('speed', speed * 100);
+    pitch.addEventListener('update', () => {
+      // showScalar('one', 100);
+      // showScalar('angle', angle * 100);
+      // showScalar('speed', speed * 100);
       rerender();
     });
   }, []);

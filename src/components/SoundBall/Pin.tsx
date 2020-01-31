@@ -6,13 +6,15 @@ import { createSoundBall } from '../../core/motion';
 import { PinAttributes } from '../../nodes/Pin';
 import { NoteAttributes } from '../../nodes/Note';
 
-export interface PinProps extends PinAttributes, NoteAttributes {}
+export interface PinProps extends PinAttributes, NoteAttributes {
+  color: number;
+}
 
-const Pin = ({ radius, position, ...rest }: PinProps) => {
+const Pin = ({ radius, position, color, ...rest }: PinProps) => {
   const [scene] = useScene();
   useEffectStateDynamic(
     () => {
-      const material = new MeshBasicMaterial({ color: 0xffff00, wireframe: true });
+      const material = new MeshBasicMaterial({ color, wireframe: true });
       const mesh = new Mesh(new SphereGeometry(1, 10, 5), material);
       mesh.position.set(position[0], position[1], position[2]);
       mesh.position.multiplyScalar(Math.cos(radius));
@@ -25,7 +27,7 @@ const Pin = ({ radius, position, ...rest }: PinProps) => {
       const { pin, destroy } = createSoundBall({ position, radius }, rest);
       pin.addEventListener('update', ({ value: { velocity } }) => {
         material.color;
-        mesh.scale.z = velocity;
+        mesh.scale.z = velocity[0] || 0.00001;
       });
 
       return () => {

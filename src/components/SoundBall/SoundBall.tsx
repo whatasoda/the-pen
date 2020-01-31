@@ -7,6 +7,8 @@ import Pin, { PinProps } from './Pin';
 
 const calcCameraRadius = (FOV: number) => 1 / Math.cos((Math.PI * (180 - FOV)) / 360) + 0.01;
 
+const INITIAL_POWER = -0.05;
+
 interface SoundBallProps {
   FOV: number;
   pins: PinProps[];
@@ -46,23 +48,30 @@ const SoundBallComponent = ({ FOV }: SoundBallProps) => {
       camera.position.set(cameraRadius, 0, 0);
       camera.lookAt(0, 0, 0);
 
+      const radius = Math.abs(INITIAL_POWER);
+      const actualRadius = Math.sin(radius);
+      center.position.set(Math.cos(radius), 0, 0);
+      center.lookAt(0, 0, 0);
+      center.scale.set(actualRadius, actualRadius, 0.0001);
+
       return { cameraRadius, mesh, centerMaterial, center };
     },
     ({ cameraRadius, center, centerMaterial }) => {
-      let speed = 0;
-      pitch.addEventListener('speed', ({ value }) => (speed = value.speed));
+      let power = INITIAL_POWER;
+      pitch.addEventListener('power', ({ value }) => (power = value.power));
       ball.addEventListener('update', ({ value: { axis, leg } }) => {
         camera.position.set(axis[0], axis[1], axis[2]);
         camera.position.multiplyScalar(cameraRadius);
         camera.lookAt(0, 0, 0);
         camera.up.set(leg[0], leg[1], leg[2]);
 
-        const radius = Math.abs((speed - 1) * 0.05);
+        const radius = Math.abs(power);
         center.position.set(axis[0], axis[1], axis[2]);
         center.position.multiplyScalar(Math.cos(radius));
-        center.scale.set(radius, radius, 0.01);
+        const actualRadius = Math.sin(radius);
+        center.scale.set(actualRadius, actualRadius, 0.01);
         center.lookAt(0, 0, 0);
-        centerMaterial.color.set(speed >= 1 ? 0xffffff : 0x0000ff);
+        centerMaterial.color.set(power > 0 ? 0xffffff : 0x0000ff);
       });
     },
     [],

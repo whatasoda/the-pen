@@ -15,21 +15,16 @@ const MotionUpdate = ({ tree }: MotionUpdateProps) => {
   useTouchEffect(() => (curr) => (touch.curr = curr), []);
   useSensorEffect(() => {
     return (sensor) => {
-      try {
-        tree.update(({ acceleration, rotation, orientation, touchMovement, touchActivity, dt }) => {
-          vec3.copy(acceleration, sensor.acceleration);
-          vec3.copy(rotation, sensor.rotationRate);
-          vec3.copy(orientation, sensor.orientation);
-          dt[0] = sensor.dt;
-          if (touch.curr) {
-            vec2.copy(touchMovement, touch.curr.movement);
-            touchActivity[0] = Number(touch.curr.activity);
-          }
-        });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.log(e);
-      }
+      tree.update(({ acceleration, rotation, orientation, touchMovement, touchActivity, dt }) => {
+        vec3.copy(acceleration, sensor.acceleration);
+        vec3.copy(rotation, sensor.rotationRate);
+        vec3.copy(orientation, sensor.orientation);
+        dt[0] = sensor.dt;
+        if (touch.curr) {
+          vec2.copy(touchMovement, touch.curr.movement);
+          touchActivity[0] = Number(touch.curr.activity);
+        }
+      });
     };
   }, []);
 

@@ -15,7 +15,7 @@ export interface NoteAttributes {
 const Note = vn.defineNode(
   {
     inputs: {
-      velocity: 'f32-1',
+      velocity: 'f32-2',
       timeline: 'f32-2',
       dt: 'f32-1',
     },
