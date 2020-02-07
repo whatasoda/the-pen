@@ -1,24 +1,24 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import GlobalStyle from './globalStyle';
 import { vec3 } from 'gl-matrix';
-import styled from 'styled-components';
 import useAudio from './core/useAudio';
 import usePermissionRequest from './utils/permission';
-import MotionTree from './core/motion';
 import { EnvelopeProps } from './utils/envelope';
-import MotionUpdate from './components/MotionUpdate';
 import TapToStart from './components/TapToStart';
-import { PinProps } from './components/SoundBall/Pin';
-import SoundBall from './components/SoundBall/SoundBall';
-import { createThreeCanvas } from './canvas';
-import ScalarViewer from './components/ScalarViewer';
+import Player from './templates/Player/Player';
+import Host from './templates/Host/Host';
+import { PinProps } from './canvas/components/Pin';
 
 const App = () => {
+  const [[isSupported]] = useState(() => {
+    const isSupported = Boolean(window.DeviceOrientationEvent && 'ontouchstart' in window);
+    return [isSupported];
+  });
   const requestPermission = usePermissionRequest();
   const ctx = useAudio();
 
-  const pins = useMemo<PinProps[]>(() => {
-    if (!ctx || requestPermission) return [];
+  const pins = useMemo<Omit<PinProps, 'tree'>[]>(() => {
+    if (!ctx || (isSupported && requestPermission)) return [];
 
     const generalEnvelope: EnvelopeProps = {
       attack: 0.1,
@@ -50,32 +50,27 @@ const App = () => {
       source.frequency.value = freq;
 
       source.start();
-      return { position, radius, color, envelope: generalEnvelope, calcDuration, source, destination: compressor };
+      return {
+        color,
+        pinAttr: { position, radius },
+        noteAttr: { envelope: generalEnvelope, calcDuration, source, destination: compressor },
+      };
     });
   }, [ctx, requestPermission]);
+  const url = `wss://${location.hostname}:8000/`;
+  const FOV = 50;
 
   return (
     <>
       <GlobalStyle />
-      <MotionUpdate tree={MotionTree} />
-      <Canvas>
-        <SoundBall FOV={50} pins={pins} />
-      </Canvas>
-      {process.env.NODE_ENV !== 'production' && <ScalarViewer />}
-      {requestPermission && <TapToStart start={requestPermission} />}
+      {isSupported ? (
+        <Player FOV={FOV} pins={pins} code="hoge" url={url} />
+      ) : (
+        <Host FOV={FOV} pins={pins} code="hoge" url={url} />
+      )}
+      {requestPermission && isSupported && <TapToStart isSupported start={requestPermission} />}
     </>
   );
 };
-
-const Wrapper = styled.div`
-  position: fixed;
-  width: 100vw;
-  height: 100vw;
-  z-index: -1;
-  top: 0;
-  bottom: 0;
-  margin: auto;
-`;
-const Canvas = createThreeCanvas({ Wrapper });
 
 export default App;

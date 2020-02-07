@@ -1,10 +1,9 @@
 import React, { useMemo, useEffect } from 'react';
-import { useRerender } from '../utils/hooks';
-import { pitch } from '../core/motion';
+// import { useRerender } from '../utils/hooks';
 import styled from 'styled-components';
 
 const ScalarViewer = () => {
-  const rerender = useRerender();
+  // const rerender = useRerender();
   const { record } = useMemo(() => {
     const record: Record<string, number> = {};
     const showScalar = (k: string, v: number) => (record[k] = v);
@@ -12,12 +11,12 @@ const ScalarViewer = () => {
     return { showScalar, record };
   }, []);
   useEffect(() => {
-    pitch.addEventListener('update', () => {
-      // showScalar('one', 100);
-      // showScalar('angle', angle * 100);
-      // showScalar('speed', speed * 100);
-      rerender();
-    });
+    // pitch.addEventListener('update', () => {
+    //   // showScalar('one', 100);
+    //   // showScalar('angle', angle * 100);
+    //   // showScalar('speed', speed * 100);
+    //   rerender();
+    // });
   }, []);
 
   return (

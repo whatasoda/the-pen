@@ -1,32 +1,30 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import styled from 'styled-components';
 import qrcode from '../assets/qrcode.svg';
 
 interface TapToStartProps {
+  isSupported: boolean;
   start: () => void;
 }
 
-const TapToStart = ({ start }: TapToStartProps) => {
-  const isSupported = useMemo(() => Boolean(window.DeviceOrientationEvent && 'ontouchstart' in window), []);
-  return (
-    <Wrapper onClick={isSupported ? start : undefined}>
-      <Title>
-        Bell Ball (<Ja>仮</Ja>)
-      </Title>
-      {isSupported ? (
-        <Text>Tap to Start!</Text>
-      ) : (
-        <Unsupported>
-          Please open this page on your smartphone.
-          <br />
-          <Ja>このページはスマートフォン用コンテンツです。</Ja>
-          <br />
-          <QRCode src={qrcode} />
-        </Unsupported>
-      )}
-    </Wrapper>
-  );
-};
+const TapToStart = ({ isSupported, start }: TapToStartProps) => (
+  <Wrapper onClick={isSupported ? start : undefined}>
+    <Title>
+      Bell Ball (<Ja>仮</Ja>)
+    </Title>
+    {isSupported ? (
+      <Text>Tap to Start!</Text>
+    ) : (
+      <Unsupported>
+        Please open this page on your smartphone.
+        <br />
+        <Ja>このページはスマートフォン用コンテンツです。</Ja>
+        <br />
+        <QRCode src={qrcode} />
+      </Unsupported>
+    )}
+  </Wrapper>
+);
 
 const Wrapper = styled.div`
   position: fixed;
