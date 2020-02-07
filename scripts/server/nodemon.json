@@ -1,0 +1,19 @@
+{
+  "exec": "node -r ts-node/register ./server/index.ts",
+  "env": {
+    "TS_NODE_FILES": true,
+    "TS_NODE_PROJECT": "./tsconfig.server.json"
+  },
+  "ext": "js,jsx,ts,tsx",
+  "ignore": [
+    ".git",
+    "node_modules/**/node_modules",
+    "**/__test__/*.js",
+    "**/__test__/*.ts"
+  ],
+  "restartable": "rs",
+  "watch": [
+    "server",
+    "shared"
+  ]
+}
