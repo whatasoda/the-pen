@@ -6,4 +6,7 @@ export const BallBuffer = createLabeledBuffer('ball', {
   axis: 3,
   leg: 3,
   dt: 1,
+  tilt: 9,
+  swipe: 9,
+  coord: 9,
 });

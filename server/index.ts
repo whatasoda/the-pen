@@ -27,10 +27,10 @@ const startServer = () => {
     let profile: Profile | null = null;
 
     client.on('message', (data) => {
-      if (Buffer.isBuffer(data)) {
-        const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-        return handleBuffer(buffer);
-      }
+      // if (Buffer.isBuffer(data)) {
+      //   const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      //   return handleBuffer(buffer);
+      // }
 
       if (typeof data === 'string') {
         const msg = SocketMessages.parse(data);
@@ -45,15 +45,29 @@ const startServer = () => {
       profile.room.exit(client);
     });
 
-    const handleBuffer = (buffer: ArrayBuffer) => {
-      if (profile?.role === 'player') profile.room.update(buffer);
-    };
+    // const handleBuffer = () => {
+    //   // if (profile?.role === 'player') profile.room.update(buffer);
+    // };
 
     const handleMessage = (msg: SocketMessages): void => {
+      if (!profile) return handleInitMessage(msg);
+      if (profile.role === 'player') {
+        switch (msg.type) {
+          case 'BUFFER': {
+            return profile.room.update(msg.value);
+          }
+        }
+      }
+
+      if (profile.role === 'host') {
+        switch (msg.type) {
+          case 'REQUEST_RELOAD': {
+            return profile.room.requestReload();
+          }
+        }
+      }
       // eslint-disable-next-line no-console
       console.log(msg);
-      if (!profile) return handleInitMessage(msg);
-      // if (profile.role === 'host') {}
     };
 
     const handleInitMessage = (msg: SocketMessages) => {
@@ -65,7 +79,9 @@ const startServer = () => {
           } else {
             const room = (rooms[code] = createRoom(code, client));
             profile = { role: 'host', room };
-            room.on('close', () => (delete rooms[code], (profile = null)));
+            const onClose = () => (delete rooms[code], (profile = null));
+            room.on('close', onClose);
+            client.on('close', () => room.off('close', onClose));
             SocketMessages.send(client, 'SUCCESS_JOIN_ROOM');
           }
           return;
@@ -77,7 +93,10 @@ const startServer = () => {
             SocketMessages.close(client, 'NO_ROOM');
           } else {
             profile = { role: 'player', room };
-            room.on('close', () => (profile = null));
+            const onClose = () => (profile = null);
+            room.on('close', onClose);
+            client.on('close', () => (room.off('close', onClose), room.exit(client)));
+            room.join(client);
             SocketMessages.send(client, 'SUCCESS_JOIN_ROOM');
           }
           return;

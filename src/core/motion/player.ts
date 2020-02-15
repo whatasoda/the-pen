@@ -5,10 +5,11 @@ import Velocity from '../../nodes/Velocity';
 import Rotation from '../../nodes/Rotation';
 import Pitch from '../../nodes/Pitch';
 import BallTraveler from '../../nodes/BallTraveler';
-import Ball from '../../nodes/Ball';
 import Pin from '../../nodes/Pin';
 import Note from '../../nodes/Note';
 import Touch from '../../nodes/Touch';
+import CoordParser from '../../nodes/CoordParser';
+import CCC from '../../nodes/CCC';
 
 export type PlayerMotionTree = MotionTreeBase<'player', typeof TreeSchema.player>;
 export default function createPlayerMotionTree(): PlayerMotionTree {
@@ -26,15 +27,20 @@ export default function createPlayerMotionTree(): PlayerMotionTree {
 
   const velocity = [Velocity({}, { acceleration, dt }), 'output'] as const;
   const rotation = [Rotation({}, { dt, rotationRate: [rootNode, 'rotation'] }), 'rotation'] as const;
-  const pitch = Pitch({ attenuation: 0.9, angleThreshold: 0.15, speedThreshold: 0.7 }, { rotation, velocity });
+  const pitch = Pitch({ attenuation: 0.9, angleThreshold: 0.1, speedThreshold: 0.3 }, { rotation, velocity });
 
   const traveler = BallTraveler({}, { touchMovement, touchActivity, rotation, pitch: [pitch, 'power'] });
-  const ball = Ball({}, { rotation: [traveler, 'out'] });
+
+  const ccc = CCC({}, { tilt: [traveler, 'tilt'], swipe: [traveler, 'swipe'] });
+  const parsedCoord = CoordParser({}, { coord: [ccc, 'coord'] });
 
   const power = [pitch, 'power'] as const;
-  const axis = [ball, 'axis'] as const;
-  const leg = [ball, 'leg'] as const;
-  const motion = MotionNode({}, { dt, power, axis, leg }) as MotionNode;
+  const axis = [parsedCoord, 'axis'] as const;
+  const leg = [parsedCoord, 'leg'] as const;
+  const tilt = [ccc, 'tilt'] as const;
+  const swipe = [ccc, 'swipe'] as const;
+  const coord = [ccc, 'coord'] as const;
+  const motion = MotionNode({}, { dt, power, axis, leg, tilt, swipe, coord }) as MotionNode;
   tree.listen(motion);
 
   return {
@@ -42,7 +48,7 @@ export default function createPlayerMotionTree(): PlayerMotionTree {
     motion,
     update: (...args) => tree.update(...args),
     registerNote: (pinAttr, noteAttr) => {
-      const pin = Pin(pinAttr, { axis, pitch: power });
+      const pin = Pin(pinAttr, { axis: leg, pitch: power });
       const note = Note(noteAttr, { dt, velocity: [pin, 'velocity'], timeline: [pin, 'timeline'] });
       tree.listen(note);
       return [pin, () => tree.unlisten(note)];

@@ -22,11 +22,14 @@ const createRoom = (code: string, host: ServerWebSocket) => {
     player.current = client;
   };
 
-  const update = (next: ArrayBuffer) => {
-    // if (!buffer.checkBufferType(next)) return;
-    // buffer.copyFrom(next);
-    host.send(next);
+  const update = (next: number[]) => {
+    SocketMessages.send(host, 'BUFFER', next);
     emitter.emit('update', buffer);
+  };
+
+  const requestReload = () => {
+    if (!player.current) return;
+    SocketMessages.send(player.current, 'REQUEST_RELOAD');
   };
 
   const exit = (client: ServerWebSocket) => {
@@ -58,6 +61,7 @@ const createRoom = (code: string, host: ServerWebSocket) => {
     off,
     addListener,
     removeListener,
+    requestReload,
   } as const;
 };
 

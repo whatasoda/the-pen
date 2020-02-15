@@ -2,9 +2,7 @@ import React, { useMemo, useState } from 'react';
 import GlobalStyle from './globalStyle';
 import { vec3 } from 'gl-matrix';
 import useAudio from './core/useAudio';
-import usePermissionRequest from './utils/permission';
 import { EnvelopeProps } from './utils/envelope';
-import TapToStart from './components/TapToStart';
 import Player from './templates/Player/Player';
 import Host from './templates/Host/Host';
 import { PinProps } from './canvas/components/Pin';
@@ -14,11 +12,10 @@ const App = () => {
     const isSupported = Boolean(window.DeviceOrientationEvent && 'ontouchstart' in window);
     return [isSupported];
   });
-  const requestPermission = usePermissionRequest();
   const ctx = useAudio();
 
   const pins = useMemo<Omit<PinProps, 'tree'>[]>(() => {
-    if (!ctx || (isSupported && requestPermission)) return [];
+    if (!ctx) return [];
 
     const generalEnvelope: EnvelopeProps = {
       attack: 0.1,
@@ -39,7 +36,6 @@ const App = () => {
       [349.228, 0xffff44, Math.cos(unit * 4), 0, Math.sin(unit * 4)], // ふぁ
       [554.365, 0x44ffff, Math.cos(unit * 3.5), -Math.sin(unit * 1.7), Math.sin(unit * 3.5)],
       [587.33, 0xff4444, Math.cos(unit * 1.9), -Math.sin(unit * 1.7), Math.sin(unit * 1.9)], // ど
-      [493.883, 0x44ff44, Math.cos(unit * 0.7), -Math.sin(unit * 1.7), Math.sin(unit * 0.7)], // ど
     ];
 
     return freqs.map(([freq, color, x, y, z]) => {
@@ -56,19 +52,13 @@ const App = () => {
         noteAttr: { envelope: generalEnvelope, calcDuration, source, destination: compressor },
       };
     });
-  }, [ctx, requestPermission]);
+  }, [ctx]);
   const url = `wss://${location.hostname}:8000/`;
-  const FOV = 50;
 
   return (
     <>
       <GlobalStyle />
-      {isSupported ? (
-        <Player FOV={FOV} pins={pins} code="hoge" url={url} />
-      ) : (
-        <Host FOV={FOV} pins={pins} code="hoge" url={url} />
-      )}
-      {requestPermission && isSupported && <TapToStart isSupported start={requestPermission} />}
+      {isSupported ? <Player pins={pins} code="hoge" url={url} /> : <Host pins={pins} code="hoge" url={url} />}
     </>
   );
 };

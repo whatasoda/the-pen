@@ -16,7 +16,8 @@ export default function Pin({ color, tree, pinAttr, noteAttr }: PinProps) {
     const [pin, destroy] = tree.registerNote(pinAttr, noteAttr);
     pin.addEventListener('update', ({ value: { velocity } }) => {
       if (!meshRef.current) return;
-      meshRef.current.scale.z = velocity[0] || 0.00001;
+      // meshRef.current.scale.z = velocity[0] || 0.00001;
+      velocity[0];
     });
     return () => void destroy();
   }, []);
@@ -29,9 +30,10 @@ export default function Pin({ color, tree, pinAttr, noteAttr }: PinProps) {
         mesh.position.multiplyScalar(Math.cos(pinAttr.radius));
         mesh.scale.set(1, 1, 0.01).multiplyScalar(2 * Math.sin(pinAttr.radius / 2));
         mesh.lookAt(0, 0, 0);
+        meshRef.current = mesh;
       }}
     >
-      <sphereGeometry attach="geometry" args={[1, 10, 5]} />
+      <dodecahedronBufferGeometry attach="geometry" args={[1, 2]} />
       <meshBasicMaterial attach="material" args={[{ color, wireframe: true }]} />
     </mesh>
   );

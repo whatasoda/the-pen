@@ -7,9 +7,14 @@ import usePlayerUpdate from './useUpdate';
 import { createPlayerMotionTree } from '../../core/motion';
 import withBypass from '../../utils/withBypass';
 import { PlayerSocketProvider, usePlayerSocket } from '../../socket';
-import Traveler from '../../canvas/components/Traveler';
-import useSensorEffect from '../../core/useSensorEffect';
-import useTouchEffect from '../../core/useTouchEffect';
+import useSensorEffect, { SensorProvider } from '../../core/useSensorEffect';
+import useTouchEffect, { TouchEffectProvider } from '../../core/useTouchEffect';
+import TapToStart from '../../components/TapToStart';
+import usePermissionRequest from '../../utils/permission';
+import CustomCamera from '../../canvas/components/CustomCamera';
+import Power from '../../canvas/components/Power';
+import { MotionProvider } from '../../canvas/utils/useMotion';
+import Coord from '../../canvas/components/Coord';
 
 interface PlayerProps extends PlayerCanvasProps {
   code: string;
@@ -17,7 +22,6 @@ interface PlayerProps extends PlayerCanvasProps {
 }
 
 interface PlayerCanvasProps {
-  FOV: number;
   pins: Omit<PinProps, 'tree'>[];
 }
 
@@ -27,21 +31,36 @@ const PlayerCanvasContent = ({ pins }: PlayerCanvasProps) => {
   usePlayerUpdate(tree);
 
   return (
-    <>
-      <Ball />
-      <Traveler tree={tree} FOV={50} position={[0, 0, 1]} />
-      {pinElements}
-    </>
+    <MotionProvider motion={tree.motion}>
+      <Coord invert type="swipe">
+        <Power position={[0, 0, 1]} />
+        <CustomCamera fov={10} up={[0, 0, 1]} position={[1, 0, 0]} />
+      </Coord>
+      <Coord type="tilt">
+        <Ball />
+        {pinElements}
+      </Coord>
+      <mesh>
+        <sphereGeometry attach="geometry" args={[0.92, 20, 20]} />
+        <meshLambertMaterial attach="material" transparent opacity={0.4} />
+      </mesh>
+    </MotionProvider>
   );
 };
 
-export default function Player({ code, url, pins, FOV }: PlayerProps) {
+export default function Player({ code, url, pins }: PlayerProps) {
+  const [isPermitted, requestPermission] = usePermissionRequest();
   return (
-    <PlayerSocketProvider code={code} url={url}>
-      <CustomCanvas>
-        <PlayerCanvasContent pins={pins} FOV={FOV} />
-      </CustomCanvas>
-    </PlayerSocketProvider>
+    <TouchEffectProvider>
+      <SensorProvider>
+        <PlayerSocketProvider code={code} url={url}>
+          <CustomCanvas>
+            <PlayerCanvasContent pins={pins} />
+          </CustomCanvas>
+          {isPermitted && pins.length ? null : <TapToStart isSupported start={requestPermission} />}
+        </PlayerSocketProvider>
+      </SensorProvider>
+    </TouchEffectProvider>
   );
 }
 

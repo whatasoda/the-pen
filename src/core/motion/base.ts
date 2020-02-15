@@ -8,6 +8,9 @@ export const TreeSchema = {
     axis: 'f32-3',
     leg: 'f32-3',
     dt: 'f32-1',
+    tilt: 'f32-9',
+    swipe: 'f32-9',
+    coord: 'f32-9',
   } as const,
   player: {
     rotation: 'f32-3',

@@ -11,12 +11,11 @@ export default function createWebSocketHook<P extends object, T>(
   { judgeOnOpen: onOpen, judgeOnMessage: onMessage, closeWithUnmount }: SocketProviderAttributes<P>,
 ) {
   type MessageHandler = (data: T) => void;
-  type MessageHandlerWithProps<T> = (data: T) => void;
   type Value = readonly [WebSocket | null, Set<MessageHandler>];
 
-  const useWebSocket = (callback?: MessageHandlerWithProps<T>, deps: any[] = []) => {
+  const useWebSocket = (callback?: MessageHandler, deps: any[] = []) => {
     const [socket, registry] = useContext(useWebSocket.context);
-    const callbackRef = useRef<MessageHandlerWithProps<T>>();
+    const callbackRef = useRef<MessageHandler>();
     useEffect(() => void (callbackRef.current = callback), deps);
     useEffect(() => {
       if (!registry) return;

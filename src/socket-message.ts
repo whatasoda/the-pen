@@ -1,3 +1,5 @@
+import { BallBuffer } from './shared/buffer';
+
 declare global {
   type ServerWebSocket = import('ws');
   interface WebSocket extends Pick<ServerWebSocket, 'CONNECTING' | 'OPEN' | 'CLOSING' | 'CLOSED'> {}
@@ -56,6 +58,8 @@ const SocketMessages = SocketMessageAgent({
   // client
   JOIN: [1000, (code: string) => ({ code })],
   CREATE: [1000, (code: string) => ({ code })],
+  REQUEST_RELOAD: [1000, () => true],
+  BUFFER: [1000, (buffer: BallBuffer | number[]) => (Array.isArray(buffer) ? buffer : Array.from(buffer.root))],
 });
 type SocketMessages = NonNullable<ReturnType<typeof SocketMessages.parse>>;
 

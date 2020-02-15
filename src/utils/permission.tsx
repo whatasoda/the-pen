@@ -29,7 +29,7 @@ export const requestPermission = {
 };
 
 const usePermissionRequest = () => useContext(usePermissionRequest.context);
-usePermissionRequest.context = createContext<undefined | (() => Promise<void>)>(undefined);
+usePermissionRequest.context = createContext<[boolean, () => Promise<void>]>([false, Promise.resolve]);
 
 export const PermissionRequestProvider: FC = ({ children }) => {
   const [hasPermisson, setHasPermission] = useState(false);
@@ -47,7 +47,7 @@ export const PermissionRequestProvider: FC = ({ children }) => {
     };
   }, []);
 
-  return <usePermissionRequest.context.Provider value={hasPermisson ? undefined : request} children={children} />;
+  return <usePermissionRequest.context.Provider value={[hasPermisson, request]} children={children} />;
 };
 
 export default usePermissionRequest;

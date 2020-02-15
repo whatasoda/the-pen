@@ -53,6 +53,7 @@ const Ball = vn.defineNode(
       vec3.copy(axis, outX);
       vec3.copy(arm, outY);
       vec3.copy(leg, outZ);
+
       dispatch('update', axis, arm, leg);
     };
   },
