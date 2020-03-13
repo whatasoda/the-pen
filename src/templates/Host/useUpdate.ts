@@ -12,13 +12,19 @@ const FRAME_OFFSET = 1;
 export default function useHostUpdate(tree: HostMotionTree, useFrame: (callback: () => void) => void) {
   const [buffer] = useState(BallBuffer);
   const [state] = useState<MutablePlayerState>({ buffers: [], framsFromFirst: 0 });
+  const [cameraOrientation, setCameraOrientation] = useState<[number, number, number, number]>([1, 0, 0, 0]);
   const client = useHostSocket((data) => {
     if (data.type !== 'message') return;
     const msg = data.value;
     switch (msg.type) {
       case 'BUFFER': {
         msg.value;
-        state.buffers.push(msg.value);
+        return state.buffers.push(msg.value);
+      }
+      case 'SET_INITIAL_CAMERA': {
+        setCameraOrientation(msg.value);
+        state.buffers.length = 0;
+        state.framsFromFirst = 0;
       }
     }
   }, []);
@@ -32,7 +38,10 @@ export default function useHostUpdate(tree: HostMotionTree, useFrame: (callback:
 
   useEffect(() => {
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState) state.buffers.length = 0;
+      if (document.visibilityState) {
+        state.buffers.length = 0;
+        state.framsFromFirst = 0;
+      }
     });
   }, []);
 
@@ -57,5 +66,5 @@ export default function useHostUpdate(tree: HostMotionTree, useFrame: (callback:
     }
   });
 
-  return [requestReload] as const;
+  return [requestReload, cameraOrientation] as const;
 }

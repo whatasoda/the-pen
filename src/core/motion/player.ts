@@ -39,7 +39,7 @@ export default function createPlayerMotionTree(): PlayerMotionTree {
   const leg = [parsedCoord, 'leg'] as const;
   const tilt = [ccc, 'tilt'] as const;
   const swipe = [ccc, 'swipe'] as const;
-  const coord = [ccc, 'coord'] as const;
+  const coord = [ccc, 'hostSwipe'] as const;
   const motion = MotionNode({}, { dt, power, axis, leg, tilt, swipe, coord }) as MotionNode;
   tree.listen(motion);
 

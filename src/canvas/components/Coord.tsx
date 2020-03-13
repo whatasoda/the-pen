@@ -29,11 +29,13 @@ export default function Coord({ type, invert, transpose, children }: PropsWithCh
 
         if (mat3.exactEquals(swipe, prev)) return;
         mat3.invert(prevInverse, prev);
+        mat3.copy(prev, swipe);
+
         mat3.invert(tiltInverse, tilt);
         mat3.multiply(hoge, swipe, prevInverse);
-        mat3.multiply(hoge, hoge, tilt);
+        mat3.multiply(hoge, hoge, tiltInverse);
         mat3.multiply(fuga, fuga, hoge);
-        mat3.copy(prev, swipe);
+        mat3.multiply(fuga, fuga, tilt);
         toThreeMatrix(fuga, matrix);
       } else {
         const { [type]: c } = value;

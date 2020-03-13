@@ -32,6 +32,10 @@ const createRoom = (code: string, host: ServerWebSocket) => {
     SocketMessages.send(player.current, 'REQUEST_RELOAD');
   };
 
+  const setInitialCamera = (orientation: [number, number, number, number]) => {
+    SocketMessages.send(host, 'SET_INITIAL_CAMERA', orientation);
+  };
+
   const exit = (client: ServerWebSocket) => {
     if (host === client) return close();
     if (player.current === client) {
@@ -62,6 +66,7 @@ const createRoom = (code: string, host: ServerWebSocket) => {
     addListener,
     removeListener,
     requestReload,
+    setInitialCamera,
   } as const;
 };
 

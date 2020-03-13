@@ -60,6 +60,7 @@ const SocketMessages = SocketMessageAgent({
   CREATE: [1000, (code: string) => ({ code })],
   REQUEST_RELOAD: [1000, () => true],
   BUFFER: [1000, (buffer: BallBuffer | number[]) => (Array.isArray(buffer) ? buffer : Array.from(buffer.root))],
+  SET_INITIAL_CAMERA: [1000, (orientation: [number, number, number, number]) => orientation],
 });
 type SocketMessages = NonNullable<ReturnType<typeof SocketMessages.parse>>;
 

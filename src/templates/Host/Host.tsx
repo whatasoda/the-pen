@@ -1,4 +1,4 @@
-import React, { useState, useMemo, MutableRefObject, useRef } from 'react';
+import React, { useState, useMemo, MutableRefObject, useRef, useEffect } from 'react';
 import styled from 'styled-components';
 import { Canvas, useFrame } from 'react-three-fiber';
 import { createHostMotionTree } from '../../core/motion';
@@ -11,6 +11,7 @@ import CustomCamera from '../../canvas/components/CustomCamera';
 import Power from '../../canvas/components/Power';
 import { MotionProvider } from '../../canvas/utils/useMotion';
 import Coord from '../../canvas/components/Coord';
+// import { vec3, quat } from 'gl-matrix';
 
 interface HostProps extends Omit<HostCanvasProps, 'handlerRef'> {
   code: string;
@@ -22,40 +23,47 @@ interface HostCanvasProps {
   handlerRef: MutableRefObject<(() => void) | undefined>;
 }
 
+// const tmp = vec3.create();
+const deg = Math.PI / 4;
+
 const HostCanvasContent = ({ pins, handlerRef }: HostCanvasProps) => {
   const [tree] = useState(createHostMotionTree);
   const pinElements = useMemo(() => pins.map((p, i) => <Pin key={i} tree={tree} {...p} />), [pins]);
-  const [requestReload] = useHostUpdate(tree, useFrame);
+  const [requestReload, cameraOrientation] = useHostUpdate(tree, useFrame);
   handlerRef.current = requestReload || undefined;
 
-  // const [state] = useState(() => ({ update: true }));
   // const [position, setPosition] = useState<[number, number, number]>(() => [0, 1, 0]);
   // const [up, setUp] = useState<[number, number, number]>(() => [0, 0, 1]);
 
-  // useEffect(() => {
-  //   tree.motion.addEventListener('update', ({ value: { axis, leg } }) => {
-  //     if (state.update) {
-  //       setUp([axis[0], axis[1], axis[2]]);
-  //       console.log(axis, leg);
-
-  //       setPosition([-leg[0], -leg[1], -leg[2]]);
-  //       state.update = false;
-  //     }
-  //   });
-
-  //   // window.addEventListener('click', () => (state.update = true));
-  // }, []);
+  useEffect(() => {
+    // setPosition(
+    //   Array.from(vec3.transformQuat(tmp, [1, 0, 0], (cameraOrientation as unknown) as quat)) as [
+    //     number,
+    //     number,
+    //     number,
+    //   ],
+    // );
+    // setUp(
+    //   Array.from((vec3.transformQuat(tmp, [0, 0, 1], (cameraOrientation as unknown) as quat))) as [
+    //     number,
+    //     number,
+    //     number,
+    //   ],
+    // );
+  }, [cameraOrientation]);
 
   return (
     <MotionProvider motion={tree.motion}>
-      <Coord transpose type="swipe">
+      <Coord invert type="coord">
         <Coord type="tilt">
-          <Coord type="swipe">
-            <CustomCamera fov={15} up={[1, 0, 0]} position={[0, 0, -1]} near={0.13} />
-          </Coord>
+          <CustomCamera
+            fov={15}
+            up={[Math.cos(deg), 0, Math.sin(deg)]}
+            position={[Math.sin(deg), 0, -Math.cos(deg)]}
+            near={0.118}
+          />
         </Coord>
       </Coord>
-
       <Power position={[0, 0, 1]} />
       <Coord type="swipe">
         <Coord type="tilt">
@@ -76,23 +84,17 @@ export default function Host({ code, url, pins }: HostProps) {
       </CustomCanvas>
       <FixedContainer>
         <ExplainTop>
-          是非横のスマホをお手にとって振ってみてください！音が出ます！ （スワイプというより、シェイクで）
+          是非横のスマホをお手にとって振ってみてください！音が出ます！ （スワイプではなくシェイクで）
           <br />
-          めちゃくちゃ頑張ればゼルダの伝説シリーズの”エポナの歌”っぽい演奏ができます…！
+          頑張ればゼルダの伝説シリーズの”エポナの歌”っぽい演奏ができます…！
           <br />
           <Red>赤</Red> <Green>緑</Green> <Blue>青</Blue> <Red>赤</Red> <Green>緑</Green> <Blue>青</Blue> <Red>赤</Red>{' '}
           <Green>緑</Green> <Blue>青</Blue> <Green>緑</Green> <Blue>青</Blue>...
         </ExplainTop>
-        <Explain>
-          <br />
-          裏でバグ修正中ですが、お気軽にお声がけください！
-          <br />
-          スワイプするとディスプレイとスマホで位置が合わない 😣ぴえん 😣
-          <br />
-          バグ修正の検証のために時々リロードが入るかもしれません！🙇‍♂️
-        </Explain>
+        <Explain></Explain>
+        {/* <Explain>裏でバグ修正中ですが、お気軽にお声がけください！</Explain> */}
         <RequestReload onClick={() => handlerRef.current?.()}>Reload</RequestReload>
-        {/* <Big>本気でバグ修正中 しばらくお待ち下さい</Big> */}
+        <Big>スマホの充電が切れてしまったので本日は終了です 😣ぴえん 😣</Big>
       </FixedContainer>
     </HostSocketProvider>
   );
@@ -119,7 +121,7 @@ const FixedContainer = styled.div`
   right: 0;
   z-index: 10;
   color: white;
-  text-shadow: 0 0 4px #fff;
+  text-shadow: 0 0 4px #aaa;
 `;
 
 const Explain = styled.p`
@@ -137,13 +139,13 @@ const ExplainTop = styled.p`
 `;
 
 const Red = styled.span`
-  color: red;
+  color: #f55;
 `;
 const Green = styled.span`
-  color: green;
+  color: #5f5;
 `;
 const Blue = styled.span`
-  color: blue;
+  color: #55f;
 `;
 
 const Big = styled.div`

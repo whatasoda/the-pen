@@ -56,6 +56,9 @@ const startServer = () => {
           case 'BUFFER': {
             return profile.room.update(msg.value);
           }
+          case 'SET_INITIAL_CAMERA': {
+            return profile.room.setInitialCamera(msg.value);
+          }
         }
       }
 

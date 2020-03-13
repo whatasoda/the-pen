@@ -21,25 +21,29 @@ const CCC = vn.defineNode(
     outputs: {
       tilt: 'f32-9',
       swipe: 'f32-9',
+      hostSwipe: 'f32-9',
       coord: 'f32-9',
     },
     events: {},
   },
   () => {
-    const localTilt = quat.create();
+    const tiltOnSwipe = quat.create();
+    const swipeOnTilt = quat.create();
     let initial = true;
-    return ({ i: { swipe, tilt }, o: { coord, tilt: tiltCoord, swipe: swipeCoord } }) => {
+    return ({ i: { swipe, tilt }, o: { coord, tilt: tiltCoord, hostSwipe: hostSwipeCoord, swipe: swipeCoord } }) => {
       if (initial) {
         mat3.identity(swipeCoord);
         mat3.identity(tiltCoord);
         mat3.identity(coord);
         initial = false;
       }
-      vec3.transformMat3(localTilt, tilt, swipeCoord);
-      localTilt[3] = tilt[3];
-      applyQuatToCoord(tiltCoord, localTilt);
-      applyQuatToCoord(swipeCoord, swipe);
+      vec3.transformMat3(swipeOnTilt, swipe, coord);
+      vec3.transformMat3(tiltOnSwipe, tilt, swipeCoord);
 
+      tiltOnSwipe[3] = tilt[3];
+      applyQuatToCoord(tiltCoord, tiltOnSwipe);
+      applyQuatToCoord(swipeCoord, swipe);
+      applyQuatToCoord(hostSwipeCoord, swipeOnTilt);
       mat3.multiply(coord, tiltCoord, swipeCoord);
     };
   },
